@@ -20,6 +20,8 @@ from functools import partial
 from typing import Dict, List, Callable, Union
 from graph_of_thoughts import controller, language_models, operations, prompter, parser
 
+# Set the logging level for the root logger
+logging.basicConfig(level=logging.DEBUG)
 
 def string_to_list(string: str) -> List[str]:
     """
@@ -728,6 +730,62 @@ Incorrectly Combined Dictionary:
 Output:
 """
 
+    fot_split_prompt = """<Instruction> Split the following input text into any paragraphs discussing different topics or relatively independent.
+Only output each segments in the following format without any additional text or thoughts:
+{{
+    "Segment 1": "Some paragraph on topic A ...",
+    "Segment 2": "Some paragraph on topic B ...",
+    "Segment 3": "Some paragraph on topic C ...",
+    "Segment 4": "Some paragraph on topic D ..."
+}} </Instruction>
+
+<Example>
+Input:
+Journeying westward, she admired the art in Italy and sipped coffee in France. The music of Spain and the history of Greece deepened her love for Europe. The Nordic beauty of Norway, Sweden, Finland, and Denmark took her breath away. She danced in Ireland, explored castles in Scotland, and marveled at the architecture in Germany and Russia. Italy, Norway, Sweden and Germany will always stay her favourite destinations to visit.
+Output: 
+{{
+    "Segment 1": "Journeying westward, she admired the art in Italy and sipped coffee in France. ",
+    "Segment 2": "The music of Spain and the history of Greece deepened her love for Europe. The Nordic beauty of Norway, Sweden, Finland, and Denmark took her breath away.",
+    "Segment 3": "She danced in Ireland, explored castles in Scotland, and marveled at the architecture in Germany and Russia.",
+    "Segment 4": "Italy, Norway, Sweden and Germany will always stay her favourite destinations to visit."
+}}
+Explanation:
+Segment 1 states the reason why Journeying westward loves Italy.
+Segment 2 states the reason why Journeying westward loves Norway and Sweden.
+Segment 3 states the reason why Journeying westward loves Germany.
+Segment 4 summarize that Italy, Norway, Sweden and Germany will always stay her favourite destinations to visit.
+</Example>
+
+Input:
+{input}
+"""
+
+
+    fot_relevance_prompt = """<Instruction> Return "1" if the input paragraph have country name in it.
+    Only return "1" when there is country name in the paragraph and "0" for paragraph with no country name in the following format without any additional text or thoughts:
+{{
+    "relevant": "1"
+}} </Instruction>
+
+<Examples>
+Input:
+Alexandra boarded the first flight of her grand journey. With a globe-trotting itinerary in hand, she was filled with excitement. 
+Output: 
+{{
+   "relevant": "0"
+}}
+Input:
+A quick detour to Uruguay and Paraguay allowed him to experience the vibrancy of the local cultures before returning back to Canada through Peru, Brazil and Mexico.
+Output: 
+{{
+   "relevant": "1"
+}}
+</Examples>
+
+Input:
+{input}
+"""
+
     def aggregation_prompt(self, state_dicts: List[Dict], **kwargs) -> str:
         """
         Generate an aggregation prompt for the language model.
@@ -810,6 +868,28 @@ Output:
             return self.tot_improve_prompt.format(
                 input=original, incorrect_dict=current
             )
+        elif method.startswith("fot"):
+            # start with Fot split prompt
+            if (current is None or current == "") and kwargs["phase"] == 0:
+                return self.fot_split_prompt.format(
+                input=original, incorrect_dict=current
+            )
+            # during sub-task solving, we use gotx prompt
+            if kwargs["phase"] == 1:
+                return self.count_prompt_sentence.format(input=kwargs["sub_text"])
+            
+            # converge
+            if (
+                "sub_text" in kwargs
+                and kwargs["sub_text"] != ""
+                and len(kwargs["sub_text"]) < len(original) * 0.75
+            ):
+                original = kwargs["sub_text"]
+
+            # during refining, we use gotx prompt
+            return self.sentence_improve_prompt.format(
+                    input=original, incorrect_dict=current
+                )
 
     def improve_prompt(self, current: str, aggr1: str, aggr2: str, **kwargs) -> str:
         """
@@ -837,7 +917,9 @@ Output:
         :return: The validation prompt.
         :rtype: str
         """
-        pass
+        return self.fot_relevance_prompt.format(
+            input=kwargs["sub_text"]
+        )
 
     def score_prompt(self, state_dicts: List[Dict], **kwargs) -> str:
         """
@@ -986,6 +1068,23 @@ class KeywordCountingParser(parser.Parser):
                         new_state["phase"] = 1
                         new_state["part"] = key
                         new_states.append(new_state)
+                elif (state["method"].startswith("fot")
+                    and state["current"] == ""
+                    and state["phase"] == 0):
+                    answer = self.strip_answer_json(text)
+                    json_dict = json.loads(answer)
+                    for key, value in json_dict.items():
+                        if "Segment" not in key:
+                            logging.warning(
+                                f"Expected key to contain 'Segment', but found {key}."
+                            )
+                            continue
+                        new_state = state.copy()
+                        new_state["current"] = ""
+                        new_state["sub_text"] = value
+                        new_state["phase"] = 1
+                        new_state["part"] = key
+                        new_states.append(new_state)
                 else:
                     answer = self.strip_answer_json(text)
                     new_state = state.copy()
@@ -1007,7 +1106,10 @@ class KeywordCountingParser(parser.Parser):
         :return: Whether the thought state is valid or not.
         :rtype: bool
         """
-        pass
+        assert len(texts) == 1, "Expected 1 text for validate answer."
+        text = texts[0]
+        answer = self.strip_answer_json(text)
+        return answer=='1'
 
     def parse_score_answer(self, states: List[Dict], texts: List[str]) -> List[float]:
         """
@@ -1317,6 +1419,72 @@ def gotx(all_potential_countries) -> operations.GraphOfOperations:
 
     return operations_graph
 
+def fot(all_potential_countries) -> operations.GraphOfOperations:
+    operations_graph = operations.GraphOfOperations()
+
+    sub_texts = operations.Generate(1, 1)
+    operations_graph.append_operation(sub_texts)  # generate the sublists
+    # filter out irrelevant paragraph (RAG)
+    val_sub_texts = operations.ValidateAndImprove(
+        1, False, 0
+    )
+    val_sub_texts.add_predecessor(sub_texts)
+    operations_graph.add_operation(val_sub_texts)
+    # continue generation
+    sub_paragraphs = []
+    # assume 33 for maximum number of segment.
+    for i in range(1, 33):
+        paragraph_id = f"Segment {i}"
+        sub_text = operations.Selector(
+            lambda thoughts, list_id=paragraph_id: [
+                thought for thought in thoughts if thought.state["part"] == list_id
+            ]
+        )
+        sub_text.add_predecessor(val_sub_texts)
+        operations_graph.add_operation(sub_text)
+        count_sub_text = operations.Generate(1, 10)
+        count_sub_text.add_predecessor(sub_text)
+        operations_graph.add_operation(count_sub_text)
+
+        score_sub_text = operations.Score(
+            1, False, partial(num_errors, all_potential_countries)
+        )
+        score_sub_text.add_predecessor(count_sub_text)
+        operations_graph.add_operation(score_sub_text)
+        keep_best_sub_text = operations.KeepBestN(1, False)
+        keep_best_sub_text.add_predecessor(score_sub_text)
+        operations_graph.add_operation(keep_best_sub_text)
+
+        sub_paragraphs.append(keep_best_sub_text)
+
+    # normal aggregation in GoT
+    while len(sub_paragraphs) > 1:
+        new_sub_paragraphs = []
+        for i in range(0, len(sub_paragraphs), 2):
+            aggregate = operations.Aggregate(3)
+            aggregate.add_predecessor(sub_paragraphs[i])
+            aggregate.add_predecessor(sub_paragraphs[i + 1])
+            operations_graph.add_operation(aggregate)
+            val_im_aggregate = operations.ValidateAndImprove(
+                1, True, 3, valid_aggregation
+            )
+            val_im_aggregate.add_predecessor(aggregate)
+            operations_graph.add_operation(val_im_aggregate)
+            score_aggregate = operations.Score(
+                1, False, partial(num_errors, all_potential_countries)
+            )
+            score_aggregate.add_predecessor(val_im_aggregate)
+            operations_graph.add_operation(score_aggregate)
+            keep_best_aggregate = operations.KeepBestN(1, False)
+            keep_best_aggregate.add_predecessor(score_aggregate)
+            operations_graph.add_operation(keep_best_aggregate)
+            new_sub_paragraphs.append(keep_best_aggregate)
+        sub_paragraphs = new_sub_paragraphs
+
+    operations_graph.append_operation(operations.GroundTruth(test_keyword_counting))
+
+    return operations_graph
+
 
 def run(
     data_ids: List[int],
@@ -1450,9 +1618,9 @@ if __name__ == "__main__":
         {Spain: 2, ...}
     """
     budget = 30
-    samples = [item for item in range(0, 100)]
-    approaches = [io, cot, tot, tot2, got4, got8, gotx]
+    samples = [item for item in range(0, 1)]
+    approaches = [fot]
 
-    spent = run(samples, approaches, budget, "chatgpt")
+    spent = run(samples, approaches, budget, "chatgpt4o-mini")
 
     logging.info(f"Spent {spent} out of {budget} budget.")

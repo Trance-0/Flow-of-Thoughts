@@ -600,47 +600,55 @@ def got() -> operations.GraphOfOperations:
 # TODO
 def fot() -> operations.GraphOfOperations:
     """
-    Generates the flow of thoughts by the GoT method.
+    Generates the Graph of Operations for building a collection of thoughts model with tag evaluation.
 
     :return: Graph of Operations
     :rtype: GraphOfOperations
     """
     operations_graph = operations.GraphOfOperations()
+    
+    # Step 1: Generate initial collection of thoughts
+    thoughts = operations.Generate(2, 1)
+    operations_graph.append_operation(thoughts)  # generate the initial thoughts collection
+    
+    # Step 2: Filter thoughts based on tags
+    tag_selector = operations.Selector(
+        lambda thoughts: [
+            thought for thought in thoughts if 'tag' in thought.state  # assuming 'tag' is a field in thought's state
+        ]
+    )
+    tag_selector.add_predecessor(thoughts)
+    operations_graph.add_operation(tag_selector)
+    
+    # Step 3: Evaluate uncertainty based on tagged thoughts
+    uncertainty_evaluation = operations.EvaluateUncertainty()
+    uncertainty_evaluation.add_predecessor(tag_selector)
+    operations_graph.add_operation(uncertainty_evaluation)
+    
+    # Step 4: Ask for additional information required to make decisions
+    ask_for_info = operations.AskForInformation()  # This operation would be defined to query missing info
+    ask_for_info.add_predecessor(uncertainty_evaluation)
+    operations_graph.add_operation(ask_for_info)
 
-    plans = operations.Generate(2, 1)
-    operations_graph.append_operation(plans)  # generate the sublists
-    for i in range(1, 3):
-        list_id = f"List {i}"
-        sub_list = operations.Selector(
-            lambda thoughts, list_id=list_id: [
-                thought for thought in thoughts if thought.state["part"] == list_id
-            ]
-        )
-        sub_list.add_predecessor(plans)
-        operations_graph.add_operation(sub_list)
-        sort_sub_list = operations.Generate(1, 5)
-        sort_sub_list.add_predecessor(sub_list)
-        operations_graph.add_operation(sort_sub_list)
-        score_sub_list = operations.Score(1, False, utils.num_errors)
-        score_sub_list.add_predecessor(sort_sub_list)
-        operations_graph.add_operation(score_sub_list)
-        keep_best_sub_list = operations.KeepBestN(1, False)
-        keep_best_sub_list.add_predecessor(score_sub_list)
-        operations_graph.add_operation(keep_best_sub_list)
+    # Step 5: Choose between cached thoughts or generating a refined answer
+    comparison_caching = operations.CacheAndMatchTag(1, maximize=True)  # Cache with max tag matching
+    comparison_caching.add_predecessor(ask_for_info)
+    operations_graph.add_operation(comparison_caching)
 
-    final_aggregate = operations.Aggregate(10)
-    operations_graph.append_operation(final_aggregate)
-    operations_graph.append_operation(operations.Score(1, False, utils.num_errors))
-    keep_best_aggregate_final = operations.KeepBestN(1, False)
-    operations_graph.append_operation(keep_best_aggregate_final)
+    # Step 6: Generate answer using LLM if cached thoughts are insufficient
+    generate_answer = operations.GenerateAnswerWithLLM()
+    generate_answer.add_predecessor(comparison_caching)
+    operations_graph.add_operation(generate_answer)
+    
+    # Step 7: Make the final decision based on the gathered information
+    final_decision = operations.MakeDecision()
+    final_decision.add_predecessor(generate_answer)
+    operations_graph.add_operation(final_decision)
 
-    operations_graph.append_operation(operations.Generate(1, 10))
-    score_aggr_3 = operations.Score(1, False, utils.num_errors)
-    score_aggr_3.add_predecessor(keep_best_aggregate_final)
-    operations_graph.append_operation(score_aggr_3)
-    operations_graph.append_operation(operations.KeepBestN(1, False))
-
-    operations_graph.append_operation(operations.GroundTruth(utils.test_sorting))
+    # Step 8: Return the maximum probable answer from the decision
+    max_probable_answer = operations.MaxProbableAnswer()
+    max_probable_answer.add_predecessor(final_decision)
+    operations_graph.add_operation(max_probable_answer)
 
     return operations_graph
 
