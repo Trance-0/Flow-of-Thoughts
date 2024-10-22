@@ -1,6 +1,6 @@
-# Flow of Thoughs
+# Flow of Thoughts
 
-Flow of Thoughts is a framework that can dynamically iterate the long passage with self-RAG based on a graph of thoughts. The idea goes as follows:
+The Flow of Thoughts is a framework that can dynamically iterate the long passage with self-RAG based on a graph of thoughts. The idea goes as follows:
 
 First, the LLM will split the passage into several syntactically independent paragraphs by iterating the long texts. For example, the LLM will split a paper into sections like abstract, importance of projects, related work A, related work B, proposed solutions, etc that can fit into the context windows.
 
