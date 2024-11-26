@@ -1,0 +1,41 @@
+\begin{thebibliography}{1}
+
+\bibitem{arora2023theoryemergencecomplexskills}
+Sanjeev Arora and Anirudh Goyal.
+\newblock A theory for emergence of complex skills in language models, 2023.
+
+\bibitem{Besta_2024}
+Maciej Besta, Nils Blach, Ales Kubicek, Robert Gerstenberger, Michal Podstawski, Lukas Gianinazzi, Joanna Gajda, Tomasz Lehmann, Hubert Niewiadomski, Piotr Nyczyk, and Torsten Hoefler.
+\newblock Graph of thoughts: Solving elaborate problems with large language models.
+\newblock {\em Proceedings of the AAAI Conference on Artificial Intelligence}, 38(16):17682–17690, March 2024.
+
+\bibitem{ding2023longnetscalingtransformers1000000000}
+Jiayu Ding, Shuming Ma, Li~Dong, Xingxing Zhang, Shaohan Huang, Wenhui Wang, Nanning Zheng, and Furu Wei.
+\newblock Longnet: Scaling transformers to 1,000,000,000 tokens, 2023.
+
+\bibitem{hamdan2024sparsemambareinforcingcontrollability}
+Emadeldeen Hamdan, Hongyi Pan, and Ahmet~Enis Cetin.
+\newblock Sparse mamba: Reinforcing controllability in structural state space models, 2024.
+
+\bibitem{lin2022teachingmodelsexpressuncertainty}
+Stephanie Lin, Jacob Hilton, and Owain Evans.
+\newblock Teaching models to express their uncertainty in words, 2022.
+
+\bibitem{liu2023lostmiddlelanguagemodels}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang.
+\newblock Lost in the middle: How language models use long contexts, 2023.
+
+\bibitem{Wei2022ChainOT}
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Ed~Huai hsin Chi, F.~Xia, Quoc Le, and Denny Zhou.
+\newblock Chain of thought prompting elicits reasoning in large language models.
+\newblock {\em ArXiv}, abs/2201.11903, 2022.
+
+\bibitem{wu2022memorizingtransformers}
+Yuhuai Wu, Markus~N. Rabe, DeLesley Hutchins, and Christian Szegedy.
+\newblock Memorizing transformers, 2022.
+
+\bibitem{zhou2023leasttomostpromptingenablescomplex}
+Denny Zhou, Nathanael Schärli, Le~Hou, Jason Wei, Nathan Scales, Xuezhi Wang, Dale Schuurmans, Claire Cui, Olivier Bousquet, Quoc Le, and Ed~Chi.
+\newblock Least-to-most prompting enables complex reasoning in large language models, 2023.
+
+\end{thebibliography}

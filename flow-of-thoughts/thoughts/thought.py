@@ -1,52 +1,57 @@
+import logging
+import random
 from language_models.abstract_language_model import AbstractLanguageModel
 from typing import Optional, List
-from abc import ABC, abstractmethod
-from thoughts.operations import Operation
-class Thought(ABC):
+
+class Thought():
     """
     A thought is a node in a flow of thoughts, the root thought is the initial prompt.
     """
-    def __init__(self, content: str, parents: List[Optional['Operation']] = None, is_executable: bool=False):
+    def __init__(self, content: str, parents_operations: List = [], is_executable: bool=False,children_operations: List = []):
         """
         Initialize a thought.
         
         :param content: The content of the thought.
         :type content: str
-        :param language_model: The language model to use for the thought.
-        :type language_model: AbstractLanguageModel
-        :param parents: The parents of the thought. Root thoughts have no parents.
-        :type parents: List[Optional['Operation']]
+        :param parents_operations: The parent operations of the thought. Root thoughts have no parent operations.
+        :type parents_operations: List[Optional['Operation']]
         :param is_executable: Whether the thought is executable, for example, thought after scoring is not executable because that's the final result. Initially, all thoughts are non-executable except for the root thought. It is executed after parent operations are executed.
         :type is_executable: bool
         """
+        self.logger = logging.getLogger(f'{self.__class__.__name__}')
         self.content = content
-        self.parents = parents
-        self.children = []
+        self.parents_operations = parents_operations
+        self.children_operations = children_operations
         self.is_executable = is_executable
-
-    def get_children(self) -> List['Thought']:
-        return [op.child_thought for op in self.children]
+        self.hash = random.randint(0, 2**64-1)
+        self.logger.debug(f"Thought initialized with content: {self.content}, parents_operations: {','.join([str(op) for op in self.parents_operations])}, is_executable: {self.is_executable}, children_operations: {','.join([str(op) for op in self.children_operations])}")
     
-    def append_child(self, child: Operation) -> None:
-        self.children.append(child)
-
-    def append_children(self, children: List[Operation]) -> None:
-        self.children.extend(children)
+    def get_children_operations(self) -> List:
+        return self.children_operations
     
-    def get_parents(self) -> List['Thought']:
-        return [op.parent_thought for op in self.parents]
+    def append_child_operation(self, child) -> None:
+        self.logger.info(f"trying to append child operation {child} to parent {self}")
+        if child.hash not in [op.hash for op in self.children_operations]:
+            self.children_operations.append(child)
+        self.logger.debug(f"Appending child operation {child} to parent {self}")
 
-    @abstractmethod
+    def get_parents_operations(self) -> List:
+        return self.parents_operations
+    
+    def append_parent_operation(self, parent) -> None:
+        if parent.hash not in [op.hash for op in self.parents_operations]:
+            self.parents_operations.append(parent)
+        self.logger.debug(f"Appending parent operation {parent} to child {self}")
+
     def compress(self) -> None:
-
         pass
 
     def __str__(self) -> str:
-        return self.content
+        return f"Thought({self.content},children_operations=[{len(self.get_children_operations())}]=[{','.join([str(op) for op in self.get_children_operations()])}]"
     
     def __json__(self) -> dict:
         return {
             "content": self.content,
-            "language_model": self.language_model,
-            "children": [child.__json__() for child in self.children],
+            "is_executable": self.is_executable,
+            "children_operations": [op.__json__() for op in self.children_operations],
         }

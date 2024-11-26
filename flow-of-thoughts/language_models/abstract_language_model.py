@@ -68,3 +68,15 @@ class AbstractLanguageModel(ABC):
         :rtype: List[str]
         """
         pass
+
+    @abstractmethod
+    def get_response_cost(self, query_response: Union[List[Any], Any]) -> float:
+        """
+        Abstract method to extract response cost from the language model's response(s).
+
+        :param query_response: The response returned from the language model.
+        :type query_response: Union[List[Any], Any]
+        :return: The cost of the response.
+        :rtype: float
+        """
+        pass

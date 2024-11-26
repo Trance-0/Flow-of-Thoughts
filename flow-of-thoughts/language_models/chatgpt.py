@@ -19,7 +19,7 @@ class ChatGPT(AbstractLanguageModel):
         self.config: Dict = self.config[model_name]
         # The model_id is the id of the model that is used for chatgpt, i.e. gpt-4, gpt-3.5-turbo, etc.
         self.model_id: str = self.config["model_id"]
-        # The prompt_token_cost and response_token_cost are the costs for 1000 prompt tokens and 1000 response tokens respectively.
+        # The prompt_token_cost and response_token_cost are the costs for 1M prompt tokens and 1M response tokens respectively.
         self.prompt_token_cost: float = self.config["prompt_token_cost"]
         self.response_token_cost: float = self.config["response_token_cost"]
         # The temperature of a model is defined as the randomness of the model's output.
@@ -134,3 +134,8 @@ class ChatGPT(AbstractLanguageModel):
             for response in query_response
             for choice in response.choices
         ]
+    
+    def get_response_cost(self, query_response: Union[List[ChatCompletion], ChatCompletion]) -> float:
+        if not isinstance(query_response, List):
+            query_response = [query_response]
+        return sum([response.usage.completion_tokens * self.response_token_cost / 1000000.0 for response in query_response])

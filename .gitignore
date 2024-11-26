@@ -31,3 +31,4 @@ env/
 # Config File
 **/config.json
 /ref
+*.log

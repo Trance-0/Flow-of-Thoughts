@@ -1,0 +1,226 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2024
+
+
+% ready for submission
+\usepackage{neurips_2024}
+\usepackage{algorithm,algpseudocode}
+\usepackage{amsmath}
+
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2024}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2024}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2024}
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+
+\title{Course Project Proposal for CSE561 Fall 2024}
+\title{Course Project Proposal for CSE561 Fall 2024}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+  David S. Hippocampus\thanks{Use footnote for providing further information
+    about author (webpage, alternative address)---\emph{not} for acknowledging
+    funding agencies.} \\
+  Department of Computer Science\\
+  Cranberry-Lemon University\\
+  Pittsburgh, PA 15213 \\
+  \texttt{hippo@cs.cranberry-lemon.edu} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+
+\begin{abstract}
+
+Project choice: Designing a novel algorithm to do inference on large language models (white box models such as LLaMA2 models, or black box models such as GPT-4, CLAUDE, etc.) to solve some type of complex problems, and analyze their limitations.
+
+\end{abstract}
+
+
+\section{Main goal of project}
+
+To investigate how to allow a large language model (LLM) such as GPT-4o to retrieve information relevant to solving problems without relying on additional pre-training. However, there is no free lunch for any improvements we make, we must try to utilize the context window as the bandwidth to transfer information as much as possible to utilize the intelligence of LLM to its maximum.
+
+This final project focuses on studying how to help LLMs store and manage "knowledge" and "references". The large language model is a natural compressor \cite{delétang2024languagemodelingcompression}. We can efficiently compress the knowledge as a graph node with a set of tag tuples for further referencing. We can scale the data and keep the relevant information to solve the problem when prompting the LLM.
+
+\section{Importance of project}
+
+The memory problem of LLM has persisted for a long time. Some recent research finds that modifying where important information is placed within the language model’s input context—such as moving the section that answers a question—creates a U-shaped performance pattern. The model performs better when this information is at the very start (primacy effect) or at the end (recency effect) of the input context, but its performance drops notably when the information is situated in the middle of the context. \cite{liu2023lostmiddlelanguagemodels}
+
+However, in real life, we need to study and gather tons of information when solving problems, an agent must be aware of many aspects of a question before making correct and consistent decisions. Increasing the memory size or other methods that help LLMs to gain information in the large corpus is essential to make the models solve problems like a human expert.
+
+\section{Related work}
+% Related work (an extended one if the related work in your proposal does not discuss specific approaches directly related to your problem setting)
+
+\subsection{Chain-of-thoughts}
+
+Chain-of-thoughts \cite{Wei2022ChainOT} is an effective prompting method discovered in 2023 by Jason Wei etc. It provides an example of a logic chain to solve a problem similar to the target question allowing the LLMs to think step by step. This prompt can be used in the Training and Prompting stage of the LLM and generally provides better results when dealing with problems in Mathematics and Engineering.
+
+One significant constraint faced by LLMs based on CoT is the context window size. This can lead to situations where the model forgets previous steps when working through complex problems, particularly in scenarios that require Chain-of-Thought (CoT) reasoning.
+
+\subsection{Graph-of-thoughts}
+
+Graph of thoughts \cite{Besta_2024} is a framework used to prompt LLMs by collecting the thinking process and branching different ideas generated by LLMs. Using generation and aggregation, the model selects the best result in the thinking process and develops on that.  
+
+integrating concepts such as the Graph of Thoughts and other search methods might provide valuable support for solving problems with a limited context window. By employing these techniques, we can enhance the model’s ability to organize and retrieve relevant data, facilitating better problem-solving even with constrained memory resources.
+
+However, during the aggregation process, the LLM cannot freely choose the information they need to solve the problem but just propagate from previous thoughts, in this research, our framework will try to give the LLM to choose the material that they find helpful.
+
+\subsection{Express uncertainty}
+
+Another relevant approach is detailed in a paper discussing the certainty of LLMs in problem-solving \cite{lin2022teachingmodelsexpressuncertainty}. This research focuses on how models express and handle uncertainty, which can be instrumental in determining when to terminate the search or prompting process. Specifically, the authors explore techniques such as uncertainty sampling and confidence thresholds, which allow models to quantify their level of certainty about generated outputs. Understanding and incorporating measures of certainty can help optimize when and how the model utilizes its context, thereby allowing it to defer to more reliable responses or request additional information when faced with ambiguous queries. Understanding and incorporating measures of certainty can help optimize when and how the model utilizes its context, potentially leading to more accurate and efficient problem-solving.
+
+\subsection{Self-verification}
+
+Self-verification \cite{weng2023largelanguagemodelsbetter} is an important technique in improving the reliability of responses generated by large language models (LLMs). When an LLM initially produces an answer, there may be some inaccuracies due to the model’s limitations in understanding the full context or providing detailed reasoning. However, the model has the ability to correct or refine its output by "thinking twice." One way this can be achieved is by prompting the model to reverse the roles of questions and answers. By taking the original answer and transforming it back into a question, followed by asking the LLM to generate an updated or revised answer, researchers can often obtain a more accurate and thoughtful response.
+
+This process encourages the model to evaluate its earlier reasoning and detect inconsistencies or gaps in logic that may have been overlooked initially. The technique leverages the model’s own knowledge to reassess and validate its responses, thereby functioning as a form of internal feedback. Additionally, this self-verification approach may prompt the model to consider alternative interpretations of the question, helping to mitigate issues like oversimplification or misunderstanding of complex queries. By iterating in this manner, the quality of the response can be significantly enhanced, offering a more reliable and nuanced answer for the user.
+
+\subsection{Memorizing Transformers and Self-Reflective Retrieval-Augmented Generation (SELF-RAG)}
+
+Furthermore, exploring memorizing transformers and their approaches could provide additional strategies for extending Transformer architectures using kNN \cite{wu2022memorizingtransformers}. These methods focus on enhancing the model’s ability to retain and recall information across longer contexts, potentially offering practical solutions for memory limitations.
+
+Other frameworks like Self-RAG \cite{asai2023selfraglearningretrievegenerate} are also helpful for LLM to retrieve essential information when solving problems in long paragraphs. The model incorporates a feedback loop where it reflects on its own generated responses to improve their quality before delivering them. This reflection can involve: Checking for consistency with the retrieved documents, verifying the factual accuracy, and identifying potential hallucinations (when the model generates incorrect or fabricated information).
+
+
+\section{Proposed Framework}
+% (highlight the contribution of your method: novelty/effectiveness/efficiency/simplicity)
+
+We want to create a Flow of Thoughts framework that can dynamically iterate the long passage with self-RAG based on a graph of thoughts. The idea goes as follows:
+
+First, the LLM will split the passage into several syntactically independent paragraphs by iterating the long texts. For example, the LLM will split a paper into sections like abstract, importance of projects, related work A, related work B, proposed solutions, etc that can fit into the context windows.
+
+Then we let LLM to determine if the passage is relevant to the problem that we are going to solve. For example, when we ask "What related technologies did the author use when doing the project?" The LLM should ignore the proposed framework, conclusion, and experimental results section and only focus on reading the "Related work" sections.
+
+Finally, we let LLM compose answers based on the related paper segments with supporting references.
+
+\begin{algorithm}
+    \caption{Flow of thoughts($P,Q$)}\label{alg:cap}
+    \begin{algorithmic}
+        \Require Generator LM $\mathcal{M}$
+        \Require Large-scale passage collections $P=\{d_1, . . . , d_N \}$
+        \Require Final question $Q$.
+         \State $segments \gets []$
+        
+                \While {$P$ is not empty}
+                    \State $current\_passage\gets P.pop()$
+                    \State $current\_segement\gets \mathcal{M}($ relevant info in $current\_passage$ to solve problem $Q))$
+                \If{current\_segment is not empty}
+                    \State $segments.\text{add}(current\_segment)$
+                \EndIf
+                \EndWhile
+        \State $solutions\gets[]$
+        \For{ each $current\_segment\in segments$}
+            \State $solutions.\text{add}(current\_segment)$
+        \EndFor
+        \While {$solutions.size()>1$}
+            \State $solution_a,solution_b\gets$ first two solution of $solutions$
+            \State $current\_solution\gets\mathcal{M}($ aggregate $solution_a,solution_b)$ 
+            \State $solutions.\text{add}(current\_solution)$
+        \EndWhile
+
+        \State \Return $solutions[0]$
+
+        
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % page breaking algorithm block
+    % \algstore{myalg}
+    % \end{algorithmic}
+    % \end{algorithm}
+    % \clearpage
+    % \begin{algorithm}
+    % % don't forget to add your name of algorithm here
+    % \caption{Have safe range ($P$) (continued)}
+    % \begin{algorithmic}
+    % \algrestore{myalg}
+    % page breaking algorithm block
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \end{algorithmic}
+    \end{algorithm}
+
+
+\subsection{Novelty of the solution}
+
+The Flow of Thoughts framework introduces a new approach to processing and extracting relevant information from a large data corpus that might be space for the necessary information to solve the target problem using Self-RAG and a Graph of Thoughts structure, significantly enhancing the efficiency, relevance, and quality of interactions with long-form content. This model provides more explainability by recording how LLMs get the final solution from aggregating the partial information gained from Self-RAG. Through its intelligent segmentation, contextual relevance filtering, and ability to compose well-supported answers, this framework stands out in the landscape of text processing and information retrieval technologies.
+
+\subsection{Efficiency}
+
+Compared with a normal Graph of Thoughts, the framework intelligently filters irrelevant sections based on the posed question, enabling the model to focus solely on pertinent information. This specificity enhances the accuracy of the responses generated by the LLM and saves costs when dealing with large data corpus.
+
+Compared with a normal Self-RAG Inference, the framework provides more flexibility for the convergence of information for black-boxed models like ChatGPT and Claude. It's easier to migrate to a new model without training the retriever and fine-tuning costs.
+
+\section{
+Current experiment results (both positive and negative ones are acceptable) and insights gained from the results}
+
+Now we have implemented basic functions for the Flow of Thoughts in the Graph of Thoughts framework and introduced basic RAG layers after the generation layer and let the LLM decide whether to use those messages or not when aggregating the final answer.
+
+We have tested that works for the same type of problem that Graph of Thoughts can solve with approximately the same accuracy in the keyword counting task. In the next step, we are trying to adapt the more complex task to fully utilize the advantage of the Flow of Thoughts framework, for example, the reading tasks used in Self-RAG to compare normal Self-RAG and our algorithm. For example, we might use Closed-set tasks\cite{asai2023selfraglearningretrievegenerate} which include two datasets about public health and a multiple-choice reasoning dataset created from scientific exams to test the effectiveness of aggregation in our framework.
+
+We are also planning to add certainty states \cite{lin2022teachingmodelsexpressuncertainty} that help the framework to track the fuzziness of our created thoughts and double check on them when necessary, 
+
+During the practical coding process, we faced some difficulties in adapting our framework to the Graph-of-Thought framework since it was designed in a pipeline pattern that doesn't support the model to backtrack the information from previous thoughts, which might hinder the flexibility of our models. In the next month, we might try to free the communication between thoughts generated by our framework and proceed with more diverse connections between them.
+
+
+\medskip
+{
+\small
+\bibliography{CSE561_ProjectReference}{}
+\bibliographystyle{plain}
+}
+\end{document}

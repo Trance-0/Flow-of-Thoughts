@@ -10,7 +10,7 @@ class LlamaHF(AbstractLanguageModel):
     """
 
     def __init__(
-        self, config_path: str = "", model_name: str = "llama7b-hf", cache: bool = False
+        self, config_path: str = "", model_name: str = "llama3.2-1b-instruct-hf", cache: bool = False
     ) -> None:
         """
         Initialize an instance of the LlamaHF class with configuration, model details, and caching options.
@@ -27,7 +27,7 @@ class LlamaHF(AbstractLanguageModel):
         self.config: Dict = self.config[model_name]
         # Detailed id of the used model.
         self.model_id: str = self.config["model_id"]
-        # Costs for 1000 tokens.
+        # Costs for 1M tokens.
         self.prompt_token_cost: float = self.config["prompt_token_cost"]
         self.response_token_cost: float = self.config["response_token_cost"]
         # The temperature is defined as the randomness of the model's output.
@@ -38,8 +38,10 @@ class LlamaHF(AbstractLanguageModel):
         self.max_tokens: int = self.config["max_tokens"]
 
         # Important: setting cache directory is not recommended, as it will use the same cache for all models.
-        os.environ["HF_HOME"] = self.config["cache_dir"]
-        os.environ["HF_HUB_CACHE"] = self.config["cache_dir"]
+
+        # If you have trouble with the credentials and don't care about storage space for the LLMs and cache, you can comment out the following lines for better experience.
+        # os.environ["HF_HOME"] = self.config["cache_dir"]
+        # os.environ["HF_HUB_CACHE"] = self.config["cache_dir"]
         import transformers
 
         hf_model_id = f"meta-llama/{self.model_id}"
@@ -112,3 +114,7 @@ class LlamaHF(AbstractLanguageModel):
         :rtype: List[str]
         """
         return [query_response["generated_text"] for query_response in query_responses]
+
+    def get_response_cost(self, query_responses: List[Dict]) -> float:
+        # local mode doesn't have cost
+        return sum([len(query_response["generated_text"]) * self.response_token_cost / 1000000.0 for query_response in query_responses])
