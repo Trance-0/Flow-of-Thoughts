@@ -7,7 +7,7 @@ class Thought():
     """
     A thought is a node in a flow of thoughts, the root thought is the initial prompt.
     """
-    def __init__(self, content: str, parents_operations:List, children_operations: List, is_executable: bool=False,):
+    def __init__(self, content: str, parents_operations:List, children_operations: List=None, is_executable: bool=False):
         """
         Initialize a thought.
         
@@ -15,6 +15,8 @@ class Thought():
         :type content: str
         :param parents_operations: The parent operations of the thought. Root thoughts have no parent operations.
         :type parents_operations: List[Optional['Operation']]
+        :param children_operations: The children operations of the thought.
+        :type children_operations: List[Optional['Operation']]
         :param is_executable: Whether the thought is executable, for example, thought after scoring is not executable because that's the final result. Initially, all thoughts are non-executable except for the root thought. It is executed after parent operations are executed.
         :type is_executable: bool
         """
@@ -28,7 +30,7 @@ class Thought():
         self.logger.debug(f"Thought initialized with content: {self.content}, parents_operations: {','.join([str(pop) for pop in self.get_parents_operations()])}, is_executable: {self.is_executable}, children_operations: {','.join([str(cop) for cop in self.get_children_operations()])}")
     
     def get_children_operations(self) -> List:
-        return self.children_operations
+        return self.children_operations if self.children_operations is not None else []
     
     def append_child_operation(self, child) -> None:
         self.logger.info(f"Trying to append child operation {child} to parent {self}")
@@ -39,7 +41,7 @@ class Thought():
             self.logger.warning("Hash collision detected for {child}, child already exists. Request rejected.")
 
     def get_parents_operations(self) -> List:
-        return self.parents_operations
+        return self.parents_operations if self.parents_operations is not None else []
     
     def append_parent_operation(self, parent) -> None:
         if parent.hash not in [op.hash for op in self.get_parents_operations()]:

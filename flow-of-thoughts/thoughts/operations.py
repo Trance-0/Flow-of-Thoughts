@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from enum import IntEnum
 import itertools
+import json
 import random
 from typing import Callable, Dict, Iterator, List, Optional, Any
 from thoughts.thought import Thought
@@ -18,9 +20,8 @@ class OperationType(IntEnum):
     improve: int = 3
     validate: int = 4
     aggregate: int = 5
-    keep_best_n: int = 6
-    keep_valid: int = 7
-    selector: int = 8
+    split: int = 6
+    keep_best_n: int = 7
 
     def __str__(self) -> str:
         return self.name
@@ -80,18 +81,17 @@ class Operation(ABC):
         Validate the number of parent thoughts and child thoughts in this method
         """
         # auto generate children thoughts
-        if len(self.children_thoughts)==0:
-            if self.input_size == 1:
+        if self.get_children_thoughts is None or len(self.get_children_thoughts())==0:
+            if self.output_size == 1:
                 self.logger.warning("No child thoughts provided,a new thought will be created")
                 self.children_thoughts = [Thought("",[self],[])]
             else:
                 self.logger.warning(f"No child thoughts provided, {self.output_size} new thoughts will be created")
                 self.children_thoughts = [Thought("",[self],[]) for _ in range(self.output_size)]
-        if self.input_size == 1:
-            # connect thoughts with operation
-            self.logger.info(f"Connecting {self.input_size} parent thoughts to {self}")
-            for parent in self.parents_thoughts:
-                parent.append_child_operation(self)
+        # connect thoughts with operation
+        self.logger.info(f"Connecting {self.input_size} parent thoughts to {self}")
+        for parent in self.get_parents_thoughts():
+            parent.append_child_operation(self)
 
     @abstractmethod
     def generate_children(self) -> float:
@@ -109,10 +109,10 @@ class Operation(ABC):
         return all([parent.is_executable for parent in self.parents_thoughts])
 
     def get_children_thoughts(self) -> List[Thought]:
-        return self.children_thoughts
+        return self.children_thoughts if self.children_thoughts is not None else []
     
     def get_parents_thoughts(self) -> List[Thought]:
-        return self.parents_thoughts
+        return self.parents_thoughts if self.parents_thoughts is not None else []
     
     @abstractmethod
     def __str__(self) -> str:
@@ -124,9 +124,9 @@ class Operation(ABC):
     
 class Parser:
     """
-    Abstract class for parsing the input and output of a language model.
+    Class for parsing the input and output of a language model.
     """
-    def __init__(self, prompt: str, cot: str="", shots: List[dict]=[],name: str="unnamed"):
+    def __init__(self, prompt: str, cot: str=None, shots: List[dict]=None,name: str="unnamed"):
         self.prompt = prompt
         self.cot = cot
         self.shots = shots
@@ -134,10 +134,13 @@ class Parser:
         self.logger = logging.getLogger(f'{self.__class__.__name__}')
 
     def parse(self,input: str) -> str:
+        """
+        Parse the input to a string that can be used as a query to a language model.
+        """
         res=f'<Instruction> {self.prompt} </Instruction>'
-        if len(self.cot) > 0:
+        if self.cot is not None and len(self.cot) > 0:
             res += f'\n<Approach>\n{self.cot}\n</Approach>'
-        if len(self.shots) > 0:
+        if self.shots is not None and len(self.shots) > 0:
             partial_examples=[]
             for shot in self.shots:
                 current_example=""
@@ -156,10 +159,31 @@ class Parser:
 
     @staticmethod
     def from_dict(prompt: dict) -> 'Parser':
+        """
+        Initialize a parser from a dictionary.
+        """
         return Parser(prompt["instruction"], prompt.get("approach", ""), prompt.get("examples", []), name=prompt.get("name", "unnamed"))
+    
+    @staticmethod
+    def from_json(json_data: dict, name: str="unnamed") -> 'Parser':
+        """
+        Initialize a parser from a json dictionary.
+        """
+        content = json_data[name]
+        parser=Parser.from_dict(content)
+        parser.name = name
+        return parser
 
     def __str__(self) -> str:
         return f"Parser(prompt={self.prompt}, cot={self.cot}, shots={self.shots}, name={self.name})"
+    
+    def __json__(self) -> dict:
+        return {
+            "name": self.name,
+            "prompt": self.prompt,
+            "cot": self.cot,
+            "shots": self.shots,
+        }
 
 
 class Generate(Operation):
@@ -172,7 +196,7 @@ class Generate(Operation):
 
     operation_type: OperationType = OperationType.generate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, generate_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, generate_prompt:Parser=None, children_thoughts: List[Thought]=None):
         """
         Initialize a new Generate operation.
 
@@ -180,7 +204,7 @@ class Generate(Operation):
         :type parents_thoughts: List[Thought]
         :param language_model: The language model to use for generation.
         :type language_model: AbstractLanguageModel
-        :param branching_factor: The branching factor for generation, the number of children thoughts to generate for each parent thought.
+        :param branching_factor: The branching factor for generation, the number of children thoughts to generate for each parent thought, equiv to num_responses in language model query.
         :type branching_factor: int
         :param generate_prompt_name: The name of the generate prompt when generating json.
         :type generate_prompt_name: str
@@ -188,30 +212,40 @@ class Generate(Operation):
         :type children_thoughts: List[Thought]
         """
         self.branching_factor = branching_factor
+        if generate_prompt is None:
+            raise ValueError("generate_prompt must be provided")
         self.generate_prompt = generate_prompt
         # default name for unnamed generate prompt
         super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=branching_factor)
 
     def generate_children(self) -> float:
         self.logger.info(f"Generating {self.branching_factor} children for {self.parents_thoughts}")
-        cost = 0
-        for i in range(self.branching_factor):
-            child = self.children_thoughts[i]
+        query = None
+        # if generate multiple children thoughts
+        if self.branching_factor > 1:
+            self.logger.info(f"Generating {self.branching_factor} children for {self.parents_thoughts} with different tries")
+            query = self.language_model.query(self.generate_prompt.parse(self.parents_thoughts[0].content),num_responses=self.branching_factor)
+            response_texts = self.language_model.get_response_texts(query)
+            for i in range(self.branching_factor):
+                child = self.children_thoughts[i]
+                child.content = response_texts[i]
+                child.is_executable = True
+        else:
             query = self.language_model.query(self.generate_prompt.parse(self.parents_thoughts[0].content))
-            child.content = self.language_model.get_response_texts(query)
+            child = self.children_thoughts[0]
+            child.content = self.language_model.get_response_texts(query)[0]
             child.is_executable = True
-            cost += self.language_model.get_response_cost(query)
-        return cost
+        return self.language_model.get_response_cost(query)
+    
+    def __str__(self) -> str:
+        return f"Generate(generate_prompt_name={self.generate_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
     
     def __json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "generate_prompt_name": self.generate_prompt.name,
-            "children_thoughts": [child.__json__() for child in self.children_thoughts],
+            "children_thoughts": [child.__json__() for child in self.get_children_thoughts()],
         }
-    
-    def __str__(self) -> str:
-        return f"Generate(generate_prompt_name={self.generate_prompt.name}, children_thoughts=[{len(self.children_thoughts)}]={','.join([str(child) for child in self.children_thoughts])})"
     
 class Evaluate(Operation):
     """
@@ -220,7 +254,7 @@ class Evaluate(Operation):
 
     operation_type: OperationType = OperationType.evaluate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, evaluate_prompt: Optional['Parser']=None, evaluate_prompt_name: str="unnamed", evaluate_function: Callable[[Thought,Any], float]=None, ground_truth: Any=None, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, evaluate_prompt: Optional['Parser']=None, evaluate_prompt_name: str="unnamed", evaluate_function: Callable[[Thought,Any], float]=None, ground_truth: Any=None, children_thoughts: List[Thought]=None):
         """
         Initialize a new Evaluate operation.
 
@@ -261,11 +295,17 @@ class Evaluate(Operation):
             score = self.evaluate_function(self.parents_thoughts[0], self.ground_truth)
         else:
             query = self.language_model.query(self.evaluate_prompt.parse(self.parents_thoughts[0].content))
-            score = self.language_model.get_response_texts(query)
+            score = float(self.language_model.get_response_texts(query)[0])
             cost += self.language_model.get_response_cost(query)
         self.children_thoughts[0].content = score
         self.children_thoughts[0].is_executable = True
         return cost
+    
+    def __str__(self) -> str:
+        if self.evaluate_function is not None:
+            return f"Evaluate(evaluate_function={self.evaluate_function}, ground_truth={self.ground_truth}, children_thoughts={self.children_thoughts})"
+        else:
+            return f"Evaluate(evaluate_prompt_name={self.evaluate_prompt.name}, children_thoughts={self.children_thoughts})"    
 
     def __json__(self) -> dict:
         if self.evaluate_function is not None:  
@@ -281,12 +321,6 @@ class Evaluate(Operation):
                 "evaluate_prompt_name": self.evaluate_prompt.name,
                 "children_thoughts": [child.__json__() for child in self.children_thoughts],
             }
-    
-    def __str__(self) -> str:
-        if self.evaluate_function is not None:
-            return f"Evaluate(evaluate_function={self.evaluate_function}, ground_truth={self.ground_truth}, children_thoughts={self.children_thoughts})"
-        else:
-            return f"Evaluate(evaluate_prompt_name={self.evaluate_prompt.name}, children_thoughts={self.children_thoughts})"    
 
 class Score(Operation):
     """
@@ -298,7 +332,7 @@ class Score(Operation):
 
     operation_type: OperationType = OperationType.score
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, scoring_function: Callable[[Thought], float]=None, scoring_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, scoring_function: Callable[[Thought], float]=None, scoring_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=None):
         """
         Initialize a new Score operation.
 
@@ -327,32 +361,32 @@ class Score(Operation):
             score = self.scoring_function(self.parents_thoughts[0])
         else:
             query = self.language_model.query(self.scoring_prompt.parse(self.parents_thoughts[0].content))
-            score = self.language_model.get_response_texts(query)
+            score = float(self.language_model.get_response_texts(query)[0])
             cost += self.language_model.get_response_cost(query)
         self.children_thoughts[0].content = score
-        # score thoughts is not executable
-        self.children_thoughts[0].is_executable = False
+        self.children_thoughts[0].is_executable = True
         return cost
-
-    def __json__(self) -> dict:
-        if self.scoring_function is not None:
-            return {
-                "operation_type": self.operation_type,
-                "scoring_function": self.scoring_function,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
-            }
-        else:
-            return {
-                "operation_type": self.operation_type,
-                "scoring_prompt_name": self.scoring_prompt_name,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
-            }
     
     def __str__(self) -> str:
         if self.scoring_function is not None:
             return f"Score(scoring_function={self.scoring_function}, children_thoughts={self.children_thoughts})"
         else:
             return f"Score(scoring_prompt_name={self.scoring_prompt.name}, children_thoughts={self.children_thoughts})"
+
+    def __json__(self) -> dict:
+        if self.scoring_function is not None:
+            return {
+                "operation_type": self.operation_type,
+                "scoring_function": self.scoring_function.__name__,
+                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+            }
+        else:
+            return {
+                "operation_type": self.operation_type,
+                "scoring_prompt_name": self.scoring_prompt.name,
+                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+            }
+    
     
 class Improve(Operation):
     """
@@ -362,41 +396,49 @@ class Improve(Operation):
 
     operation_type: OperationType = OperationType.improve
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, improve_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, original_thoughts:List[Thought],improve_prompt: Parser, children_thoughts: List[Thought]=None):
         """
         Initialize a new Improve operation.
 
         :param parents_thoughts: The parent thoughts to improve.
         :type parents_thoughts: List[Thought]
+        :param branching_factor: The number of children thoughts to generate same as the branching factor of the Generate operation.
+        :type branching_factor: int
         :param improve_prompt: A parser to improve thoughts.
         :type improve_prompt: Parser
         :param improve_prompt_name: The name of the improve prompt when generating json.
         :type improve_prompt_name: str
-        :param children_thoughts: The child thoughts to improve, must have equal length as parents_thoughts.
+        :param children_thoughts: The child thoughts to improve.
         :type children_thoughts: List[Thought]
         """
-        if improve_prompt is None:
-            raise ValueError("improve_prompt must be provided")
+        if len(original_thoughts)!=1:
+            raise ValueError("original_thoughts must have one thought")
+        self.branching_factor = branching_factor
         self.improve_prompt = improve_prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
+        self.original_thoughts = original_thoughts
+        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=branching_factor)
 
     def generate_children(self) -> float:
-        self.logger.info(f"Improving thought: {self.parents_thoughts}")
-        cost = 0    
-        query = self.language_model.query(self.improve_prompt.parse(self.parents_thoughts[0].content))
-        self.children_thoughts[0].content = self.language_model.get_response_texts(query)
-        cost += self.language_model.get_response_cost(query)
-        return cost
+        self.logger.info(f"Improving thought: {self.get_parents_thoughts()}")
+        parent_thought=self.get_parents_thoughts()[0]
+        original_thought=self.original_thoughts[0]
+        query = self.language_model.query(self.improve_prompt.parse(f"Input: {original_thought.content}, \n Incorrect output: {parent_thought.content}"),num_responses=self.branching_factor)
+        for i in range(self.branching_factor):
+            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
+            self.children_thoughts[i].is_executable = True
+        return self.language_model.get_response_cost(query)
+    
+    def __str__(self) -> str:
+        return f"Improve(improve_prompt_name={self.improve_prompt.name}, children_thoughts={self.children_thoughts})"
     
     def __json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "improve_prompt_name": self.improve_prompt.name,
+            "original_thoughts_content": self.original_thoughts[0].content,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
 
-    def __str__(self) -> str:
-        return f"Improve(improve_prompt_name={self.improve_prompt.name}, children_thoughts={self.children_thoughts})"
 
 class Validate(Operation):
     """
@@ -405,16 +447,14 @@ class Validate(Operation):
 
     operation_type: OperationType = OperationType.validate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, validate_function: Callable[[str,str], bool]=None, validate_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, validate_function: Callable[[str], bool]=None, validate_prompt:Parser=None, children_thoughts: List[Thought]=None):
         """
         Initialize a new Validate operation.
         
         :param parents_thoughts: The parent thoughts to validate and improve.
         :type parents_thoughts: List[Thought]
         :param validate_function: A function to validate thoughts (if not using LM).
-        :type improve_operation: Operation
-        :param validate_function: A function to validate thoughts (if not using LM).
-        :type validate_function: Callable[[Dict], bool]
+        :type validate_function: Callable[[str], bool]
         :param validate_prompt: A parser to validate thoughts.
         :type validate_prompt: Parser
         :param children_thoughts: The child thoughts to validate and improve, must have equal length as parents_thoughts.
@@ -437,8 +477,8 @@ class Validate(Operation):
         else:
             query = self.language_model.query(self.validate_prompt.parse(parent.content))
             cost += self.language_model.get_response_cost(query)
-            self.children_thoughts[0].content = self.language_model.get_response_texts(query)
-        self.children_thoughts[0].is_executable = False
+            self.children_thoughts[0].content = self.language_model.get_response_texts(query)[0]
+        self.children_thoughts[0].is_executable = True
         self.logger.info(f"Validated thought: {self.children_thoughts}")
         return cost
 
@@ -452,12 +492,14 @@ class Validate(Operation):
         if self.validate_function is not None:
             return {
                 "operation_type": self.operation_type,
-                "validate_function": self.validate_function,
+                "validate_function": self.validate_function.__name__,
+                "children_thoughts": [child.__json__() for child in self.children_thoughts],
             }
         else:
             return {
                 "operation_type": self.operation_type,
                 "validate_prompt_name": self.validate_prompt.name,
+                "children_thoughts": [child.__json__() for child in self.children_thoughts],
             }
 
 class Aggregate(Operation):
@@ -467,19 +509,31 @@ class Aggregate(Operation):
 
     operation_type: OperationType = OperationType.aggregate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, aggregate_prompt: Optional['Parser'], children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, aggregate_prompt: Optional['Parser'], children_thoughts: List[Thought]=None):
         """
         Initialize a new Aggregate operation.
+
+        :param parents_thoughts: The parent thoughts to aggregate.
+        :type parents_thoughts: List[Thought]
+        :param branching_factor: The number of children thoughts to generate.
+        :type branching_factor: int
+        :param aggregate_prompt: A parser to aggregate thoughts.
+        :type aggregate_prompt: Parser
+        :param children_thoughts: The child thoughts to aggregate, must have equal length as parents_thoughts.
+        :type children_thoughts: List[Thought]
         """
         if aggregate_prompt is None:
             raise ValueError("aggregate_prompt must be provided")
         self.aggregate_prompt = aggregate_prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=2, output_size=1)
+        self.branching_factor = branching_factor
+        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=2, output_size=branching_factor)
 
     def generate_children(self) -> float:
         self.logger.info(f"Aggregating thoughts: {self.parents_thoughts}")
-        query = self.language_model.query(self.aggregate_prompt.parse("\n".join([parent.content for parent in self.parents_thoughts])))
-        self.children_thoughts[0].content = self.language_model.get_response_texts(query)
+        query = self.language_model.query(self.aggregate_prompt.parse("\n".join([f"Input {i+1}: {parent.content}" for i, parent in enumerate(self.parents_thoughts)])),num_responses=self.branching_factor)
+        for i in range(self.branching_factor):
+            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
+            self.children_thoughts[i].is_executable = True
         return self.language_model.get_response_cost(query)
     
     def __str__(self) -> str:
@@ -492,6 +546,42 @@ class Aggregate(Operation):
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
     
+class Split(Operation):
+    """
+    Operation to split thoughts.
+    """
+
+    operation_type: OperationType = OperationType.split 
+
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, split_key: List[str], children_thoughts: List[Thought]=None):
+        """
+        Initialize a new Split operation.
+        """
+        self.split_key = split_key
+        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=len(split_key))
+
+    def generate_children(self) -> float:
+        self.logger.info(f"Splitting thought: {self.parents_thoughts}")
+        parent_content = defaultdict(str)
+        try:
+            parent_content = json.loads(self.parents_thoughts[0].content)
+        except:
+            self.logger.error("Parent thought content is not a valid JSON format, please check the prompt or the thought content")
+        for i in range(len(self.split_key)):
+            self.children_thoughts[i].content = parent_content[self.split_key[i]]
+            self.children_thoughts[i].is_executable = True
+            self.children_thoughts[i].append_parent_operation(self.parents_thoughts[0])
+        return 0
+    
+    def __str__(self) -> str:
+        return f"Split(split_key={self.split_key}, children_thoughts={self.children_thoughts})"
+    
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "split_key": self.split_key,
+            "children_thoughts": [child.__json__() for child in self.children_thoughts],
+        }
 
 class KeepBestN(Operation):
     """
@@ -500,7 +590,7 @@ class KeepBestN(Operation):
 
     operation_type: OperationType = OperationType.keep_best_n
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, n: int, highest_score_first: bool=True, children_thoughts: List[Thought]=[]):
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, n: int, highest_score_first: bool=True, children_thoughts: List[Thought]=None):
         """
         Initialize a new KeepBestN operation.
         
@@ -523,25 +613,23 @@ class KeepBestN(Operation):
     def generate_children(self) -> float:
         self.logger.info(f"Keeping best {self.n} thoughts: {self.parents_thoughts}")
         q=[]
-        for parent in self.parents_thoughts:
+        for parent in self.get_parents_thoughts():
             q.append((float(parent.content), parent))
         q.sort(key=lambda x: x[0], reverse=self.highest_score_first)
+        self.logger.info(f"First 10 sorted thoughts: {q[:10]}")
         for i in range(self.n):
             # going up two levels, ignoring the parent scoring layer
-            self.children_thoughts[i].content = q[i][1].get_parents_thoughts()[0].get_parents_operations()[0].get_parents_thoughts()[0].content
+            self.children_thoughts[i].content = q[i][1].get_parents_operations()[0].get_parents_thoughts()[0].content
             self.children_thoughts[i].is_executable = True
         return 0
-
-class KeepValid(Operation):
-    """
-    Operation to keep valid thoughts.
-    """
-
-    operation_type: OperationType = OperationType.keep_valid
-
-class Selector(Operation):
-    """
-    Operation to select thoughts.
-    """
-
-    operation_type: OperationType = OperationType.selector
+    
+    def __str__(self) -> str:
+        return f"KeepBestN(n={self.n}, highest_score_first={self.highest_score_first}, children_thoughts={self.children_thoughts})"
+    
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "n": self.n,
+            "highest_score_first": self.highest_score_first,
+            "children_thoughts": [child.__json__() for child in self.children_thoughts],
+        }
