@@ -6,22 +6,22 @@ import os
 from language_models.llamachat_hf import LlamaHF
 from language_models.chatgpt import ChatGPT
 from thoughts.thought import Thought
-from thoughts.operations import Generate, Evaluate, ValidateAndImprove,Parser
+from thoughts.operations import Generate, Evaluate, KeepBestN, Parser
 from thoughts.challenge import Challenge
 budget = 30
 
 # use universal language model
-# lm_name = "chatgpt4o"
-# lm = language_models.ChatGPT(
-#     model_name=lm_name,
-#     cache=True,
-# )
-
-lm_name = "llama3.2-1b-instruct-hf"
-lm = LlamaHF(
+lm_name = "chatgpt4o-mini"
+lm = ChatGPT(
     model_name=lm_name,
     cache=True,
 )
+
+# lm_name = "llama3.2-1b-instruct-hf"
+# lm = LlamaHF(
+#     model_name=lm_name,
+#     cache=True,
+# )
 
 prompts=None
 
@@ -30,14 +30,14 @@ with open(os.path.join(os.path.dirname(__file__), "prompt.json"), "r") as f:
     prompts = json.load(f)
 
 def num_errors(thought: Thought)->float:
-    # TODO: implement this by observing the thought content
-    print(thought.content)
-    return 0
+    y=list(thought.content)
+    y_truth=sorted(y)
+    return sum([1 for i in range(len(y)) if y[i]!=y_truth[i]])
 
 def compare_sorted(thought: Thought, truth: str)->float:
-    # TODO: implement this by observing the thought content
-    print(thought.content)
-    return 0
+    y=list(thought.content)
+    y_truth=list(truth)
+    return sum([1 for i in range(len(y)) if y[i]!=y_truth[i]])/len(y)
 
 def io(task_input: str, task_truth: str)->Challenge:
     """
@@ -50,7 +50,7 @@ def io(task_input: str, task_truth: str)->Challenge:
     :return: Challenge to run using the IO method
     :rtype: Challenge
     """
-    root = Thought(task_input, is_executable=True)
+    root = Thought(task_input, [],[],is_executable=True)
     generate = Generate([root], lm, 1,Parser.from_dict(prompts["sort_prompt"]))
     res=Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
     return Challenge(root,max_budget=budget)
@@ -66,7 +66,7 @@ def cot(task_input: str, task_truth: str)->Challenge:
     :return: Challenge to run using the COT method
     :rtype: Challenge
     """
-    root = Thought(task_input,is_executable=True)
+    root = Thought(task_input,[],[], is_executable=True)
     generate = Generate([root], lm, 1,Parser.from_dict(prompts["sort_prompt_cot"]))
     res=Evaluate(generate.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
     return Challenge(root,max_budget=budget)
@@ -82,10 +82,18 @@ def tot(task_input: str, task_truth: str)->Challenge:
     :return: Challenge to run using the TOT method
     :rtype: Challenge
     """
-    root = Thought(task_input,is_executable=True)
-    generate = Generate([root], 20, lm,Parser.from_dict(prompts["sort_prompt_tot"]))
-    res=Evaluate(generate.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
+    root = Thought(task_input,[],[], is_executable=True)
+
+    generate = Generate([root], lm, 20, Parser.from_dict(prompts["sort_prompt_tot"]))
+    score = Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
+    keep_best = KeepBestN(score.get_children_thoughts(),1, False)
+    for _ in range(1):
+        generate = Generate(keep_best.get_children_thoughts(), lm, 20, Parser.from_dict(prompts["sort_prompt_tot"]))
+        score = Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
+        keep_best = KeepBestN(score.get_children_thoughts(),1, False)
+    res=Evaluate(keep_best.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
     return Challenge(root,max_budget=budget)
+
 
 def tot2(task_input: str, task_truth: str)->Challenge:
     """
@@ -98,8 +106,16 @@ def tot2(task_input: str, task_truth: str)->Challenge:
     :return: Challenge to run using the TOT2 method
     :rtype: Challenge
     """
-    root = Thought(0, "root", {})
-    return root
+    root = Thought(task_input,[],[], is_executable=True)
+    generate = Generate([root], lm, 20, Parser.from_dict(prompts["sort_prompt_tot"]))
+    score = Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
+    keep_best=KeepBestN(score.get_children_thoughts(),1, False)
+    for _ in range(2):
+        generate = Generate(keep_best.get_children_thoughts(), lm, 20, Parser.from_dict(prompts["sort_prompt_tot"]))
+        score = Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
+        keep_best = KeepBestN(score.get_children_thoughts(),1, False)
+    res=Evaluate(keep_best.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
+    return Challenge(root,max_budget=budget)
 
 def got(task_input: str, task_truth: str)->Challenge:
     """
@@ -112,8 +128,14 @@ def got(task_input: str, task_truth: str)->Challenge:
     :return: Challenge to run using the GOT method
     :rtype: Challenge
     """
-    root = Thought(0, "root", {})
-    return root
+    root = Thought(task_input,[],[], is_executable=True)
+    generate = Generate([root], lm, 20, Parser.from_dict(prompts["got_split_prompt"]))
+    for i in range(3):
+        score = Evaluate(generate.get_children_thoughts(), lm, evaluate_function=num_errors, ground_truth=task_truth)
+        keep_best = KeepBestN(score.get_children_thoughts(),1, False)
+        generate = Generate(keep_best.get_children_thoughts(), lm, 20, Parser.from_dict(prompts["got_merge_prompt"]))
+    res=Evaluate(generate.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
+    return Challenge(root,max_budget=budget)
 
 def fot(task_input: str, task_truth: str)->Challenge:
     """
@@ -134,7 +156,7 @@ def sorting_032():
     global budget
     # this section is for testing the sorting task
     data_ids = [item for item in range(0, 100)]
-    methods = [io, cot]
+    methods = [io, cot, tot, tot2]
     # methods = [io,cot,tot,tot2,got,fot]
     orig_budget = budget
     data_path = os.path.join(os.path.dirname(__file__), "sorting_032.csv")

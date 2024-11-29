@@ -84,7 +84,7 @@
     },
 
     "got_merge_prompt": {
-        "instruction": "Merge the following 2 sorted lists of length {length1} each, into one sorted list of length {length2} using a merge sort style approach. Only output the final merged list without any additional text or thoughts!",
+        "instruction": "Merge the following 2 sorted lists using a merge sort style approach. Only output the final merged list without any additional text or thoughts!",
         "approach": "To merge the two lists in a merge-sort style approach, follow these steps:\n1. Compare the first element of both lists.\n2. Append the smaller element to the merged list and move to the next element in the list from which the smaller element came.\n3. Repeat steps 1 and 2 until one of the lists is empty.\n4. Append the remaining elements of the non-empty list to the merged list."
     }
 }

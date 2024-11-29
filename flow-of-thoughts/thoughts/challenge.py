@@ -1,6 +1,7 @@
 import logging
 from language_models.abstract_language_model import AbstractLanguageModel
 from thoughts.thought import Thought
+from thoughts.operations import Operation
 
 class Challenge():
     def __init__(self, root: Thought, max_budget: float=10, max_thoughts: int=1000):
@@ -31,7 +32,7 @@ class Challenge():
         execution_queue = [
             operation
             for operation in self.root.get_children_operations()
-            if operation.is_executable
+            if isinstance(operation, Operation) and operation.is_executable
         ]
         self.logger.debug(f"Execution queue: {[op.operation_type for op in execution_queue]}")
         self.current_budget = 0
@@ -46,12 +47,10 @@ class Challenge():
                 break
             current_operation = execution_queue.pop(0)
             self.logger.info("Executing operation %s", current_operation.operation_type)
-            current_operation.generate_children()
+            self.current_budget += current_operation.generate_children()
             self.logger.info("Operation %s executed", current_operation.operation_type)
-            for operation in current_operation.get_children_operations():
-                if operation.is_executable:
-                    execution_queue.append(operation)
-            self.current_budget += current_operation.cost
+            if all([op.is_executable for op in current_operation.get_parents_thoughts()]):
+                execution_queue.append(current_operation)
             current_thoughts += 1
         self.logger.info("All operations executed")
 

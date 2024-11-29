@@ -7,7 +7,7 @@ class Thought():
     """
     A thought is a node in a flow of thoughts, the root thought is the initial prompt.
     """
-    def __init__(self, content: str, parents_operations: List = [], is_executable: bool=False,children_operations: List = []):
+    def __init__(self, content: str, parents_operations:List, children_operations: List, is_executable: bool=False,):
         """
         Initialize a thought.
         
@@ -19,27 +19,30 @@ class Thought():
         :type is_executable: bool
         """
         self.logger = logging.getLogger(f'{self.__class__.__name__}')
+        self.logger.debug(f"Parameters received: content={content}, parents_operations={parents_operations}, is_executable={is_executable}, children_operations={children_operations}")
         self.content = content
         self.parents_operations = parents_operations
         self.children_operations = children_operations
         self.is_executable = is_executable
         self.hash = random.randint(0, 2**64-1)
-        self.logger.debug(f"Thought initialized with content: {self.content}, parents_operations: {','.join([str(op) for op in self.parents_operations])}, is_executable: {self.is_executable}, children_operations: {','.join([str(op) for op in self.children_operations])}")
+        self.logger.debug(f"Thought initialized with content: {self.content}, parents_operations: {','.join([str(pop) for pop in self.get_parents_operations()])}, is_executable: {self.is_executable}, children_operations: {','.join([str(cop) for cop in self.get_children_operations()])}")
     
     def get_children_operations(self) -> List:
         return self.children_operations
     
     def append_child_operation(self, child) -> None:
-        self.logger.info(f"trying to append child operation {child} to parent {self}")
-        if child.hash not in [op.hash for op in self.children_operations]:
+        self.logger.info(f"Trying to append child operation {child} to parent {self}")
+        if child.hash not in [op.hash for op in self.get_children_operations()]:
             self.children_operations.append(child)
-        self.logger.debug(f"Appending child operation {child} to parent {self}")
+            self.logger.debug(f"Appended child operation {child} to parent {self}")
+        else:
+            self.logger.warning("Hash collision detected for {child}, child already exists. Request rejected.")
 
     def get_parents_operations(self) -> List:
         return self.parents_operations
     
     def append_parent_operation(self, parent) -> None:
-        if parent.hash not in [op.hash for op in self.parents_operations]:
+        if parent.hash not in [op.hash for op in self.get_parents_operations()]:
             self.parents_operations.append(parent)
         self.logger.debug(f"Appending parent operation {parent} to child {self}")
 
