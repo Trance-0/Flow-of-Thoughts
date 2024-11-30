@@ -4,7 +4,7 @@ from enum import IntEnum
 import itertools
 import json
 import random
-from typing import Callable, Dict, Iterator, List, Optional, Any
+from typing import Callable, Dict, Iterator, List, Optional, Any, Tuple
 from thoughts.thought import Thought
 from language_models.abstract_language_model import AbstractLanguageModel
 import logging
@@ -22,6 +22,8 @@ class OperationType(IntEnum):
     aggregate: int = 5
     split: int = 6
     keep_best_n: int = 7
+    conditional: int = 8
+    retrieve: int = 9
 
     def __str__(self) -> str:
         return self.name
@@ -126,17 +128,32 @@ class Parser:
     """
     Class for parsing the input and output of a language model.
     """
-    def __init__(self, prompt: str, cot: str=None, shots: List[dict]=None,name: str="unnamed"):
+    def __init__(self, prompt: str, cot: str=None, shots: List[dict]=None,name: str="unnamed",plain=False):
+        """
+        Initialize a parser.
+
+        :param prompt: The prompt for the parser.
+        :type prompt: str
+        :param cot: The cot for the parser.
+        :type cot: str
+        :param shots: The shots for the parser.
+        :type shots: List[dict]
+        :param plain: Whether the parser is plain, if true, the prompt will be returned as is without any additional formatting.
+        :type plain: bool
+        """
         self.prompt = prompt
         self.cot = cot
         self.shots = shots
         self.name = name
+        self.plain = plain
         self.logger = logging.getLogger(f'{self.__class__.__name__}')
 
     def parse(self,input: str) -> str:
         """
         Parse the input to a string that can be used as a query to a language model.
         """
+        if self.plain:
+            return self.prompt
         res=f'<Instruction> {self.prompt} </Instruction>'
         if self.cot is not None and len(self.cot) > 0:
             res += f'\n<Approach>\n{self.cot}\n</Approach>'
@@ -633,3 +650,85 @@ class KeepBestN(Operation):
             "highest_score_first": self.highest_score_first,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
+
+class Conditional(Operation):
+    """
+    Operation to conditionally execute thoughts.
+    """
+
+    operation_type: OperationType = OperationType.conditional
+
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, conditional_thoughts: List[Thought], condition_function: Callable[[List[Thought]], bool], conditional_prompt: Parser, children_thoughts: List[Thought]=None):
+        """
+        Initialize a new Conditional operation.
+        """
+        if len(conditional_thoughts)<1:
+            raise ValueError("conditional_thoughts must have at least one thought")
+        self.conditional_thoughts = conditional_thoughts
+        if condition_function is None and conditional_prompt is None:
+            raise ValueError("condition_function or conditional_prompt must be provided")
+        if condition_function is not None and conditional_prompt is not None:
+            raise ValueError("condition_function and conditional_prompt cannot be provided at the same time")
+        self.condition_function = condition_function
+        self.conditional_prompt = conditional_prompt
+        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
+
+    def __check_condition(self) -> Tuple[bool,float]:
+        """
+        Check if the condition is met.
+
+        :return: A tuple of (condition_met, cost)
+        :rtype: Tuple[bool, float]
+        """
+        if self.condition_function is not None:
+            return self.condition_function(self.conditional_thoughts), 0
+        else:
+            query = self.language_model.query(self.conditional_prompt.parse(self.parents_thoughts[0].content))
+            return float(self.language_model.get_response_texts(query)[0]), self.language_model.get_response_cost(query)
+
+    def generate_children(self) -> float:
+        self.logger.info(f"Conditioning thought: {self.parents_thoughts}")
+        condition_met, cost = self.__check_condition()
+        if condition_met:
+            self.logger.info("Condition met, executing thought")
+            query = self.language_model.query(self.conditional_prompt.parse(self.parents_thoughts[0].content))
+            self.children_thoughts[0].content = self.language_model.get_response_texts(query)[0]
+            self.children_thoughts[0].is_executable = True
+            return cost + self.language_model.get_response_cost(query)
+        else:
+            self.logger.info("Condition not met, skipping execution")
+            self.children_thoughts[0].content = self.parents_thoughts[0].content
+            return cost
+    
+    def __str__(self) -> str:
+        return f"Conditional(conditional_prompt_name={self.conditional_prompt.name}, children_thoughts={self.children_thoughts})"
+    
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "conditional_prompt_name": self.conditional_prompt.name,
+            "children_thoughts": [child.__json__() for child in self.children_thoughts],
+        }
+    
+class Retrieve(Operation):
+    """
+    Operation to retrieve thoughts.
+    """
+
+    operation_type: OperationType = OperationType.retrieve
+
+    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, retrieve_prompt: Parser, max_retrieve: int, children_thoughts: List[Thought]=None):
+        """
+        Initialize a new Retrieve operation.
+        """
+        self.retrieve_prompt = retrieve_prompt
+        self.max_retrieve = max_retrieve
+        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=len(parents_thoughts), output_size=max_retrieve)
+
+    def generate_children(self) -> float:
+        self.logger.info(f"Retrieving thoughts: {self.parents_thoughts}")
+        query = self.language_model.query(self.retrieve_prompt.parse("\n".join([f"Input {i+1}: {parent.content}" for i, parent in enumerate(self.parents_thoughts)])),num_responses=self.max_retrieve)
+        for i in range(self.max_retrieve):
+            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
+            self.children_thoughts[i].is_executable = True
+        return self.language_model.get_response_cost(query)

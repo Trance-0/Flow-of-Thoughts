@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Tuple
 from language_models.abstract_language_model import AbstractLanguageModel
 from thoughts.thought import Thought
 from thoughts.operations import Operation
@@ -74,20 +74,34 @@ class Challenge():
             current_depth += 1
         self.logger.info("All operations executed")
 
-    def trace(self,thought_hash: str) -> Thought:
-        """
-        Trace a thought by its hash. And back to its root.
-        """
-        return self.root.trace(thought_hash)
+    def get_graph(self) -> Tuple[List[Thought],List[Operation]]:
+        # get the graph of the challenge with edge and vertex
+        thoughts = set()
+        operations = set()
+        search_queue = [self.root]
+        while len(search_queue) > 0:
+            current = search_queue.pop(0)
+            for operation in current.get_children_operations():
+                if operation not in operations:
+                    operations.add(operation)
+                for child in operation.get_children_thoughts():
+                    if child not in thoughts:   
+                        thoughts.add(child)
+                        search_queue.append(child)
+        return [list(thoughts), list(operations)]
+    
 
     def __str__(self) -> str:
-        return f"Challenge(prompt={self.prompt}, goal={self.goal})"
+        return f"Challenge(max_budget={self.max_budget}, max_thoughts={self.max_thoughts})"
     
     def __json__(self) -> dict:
+        graph = self.get_graph()
         return {
             "max_budget": self.max_budget,
             "max_thoughts": self.max_thoughts,
-            "root": self.root.__json__(),
+            "total_thoughts_count": len(graph[0]),
+            "total_operations_count": len(graph[1]),
+            "graph": {"vertices": [thought.__json__() for thought in graph[0]], "edges": [operation.__json__() for operation in graph[1]]},
         }
 
     def get_remaining_budget(self) -> float:

@@ -8,6 +8,7 @@ from language_models.chatgpt import ChatGPT
 from thoughts.thought import Thought
 from thoughts.operations import (
     Aggregate,
+    Conditional,
     Generate,
     Evaluate,
     Improve,
@@ -183,61 +184,6 @@ def tot(task_input: str, task_truth: str) -> Challenge:
     )
     return Challenge(root, max_budget=budget)
 
-
-def tot2(task_input: str, task_truth: str) -> Challenge:
-    """
-    Generates the Challenge to run using the TOT2 method.
-
-    :param task_input: The input (unsorted array)
-    :type task_input: str
-    :param task_truth: The truth (sorted array)
-    :type task_truth: str
-    :return: Challenge to run using the TOT2 method
-    :rtype: Challenge
-    """
-    root = Thought(task_input, [], [], is_executable=True)
-
-    generate = Generate(
-        [root], lm, 10, generate_prompt=Parser.from_json(prompts, "sort_prompt")
-    )
-    scoring_layer = [
-        Score([t], lm, scoring_function=num_errors).get_children_thoughts()[0]
-        for t in generate.get_children_thoughts()
-    ]
-    keep_best = KeepBestN(scoring_layer, lm, 1, False)
-    for _ in range(2):
-        improve = Improve(
-            keep_best.get_children_thoughts(),
-            lm,
-            10,
-            improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
-            original_thoughts=[root],
-        )
-        extract = [
-            Generate(
-                [g],
-                lm,
-                1,
-                generate_prompt=Parser.from_json(prompts, "extract_sorted_list_prompt"),
-            )
-            for g in improve.get_children_thoughts()
-        ]
-        scoring_layer = [
-            Score(
-                t.get_children_thoughts(), lm, scoring_function=num_errors
-            ).get_children_thoughts()[0]
-            for t in extract
-        ]
-        keep_best = KeepBestN(scoring_layer, lm, 1, False)
-    res = Evaluate(
-        keep_best.get_children_thoughts(),
-        lm,
-        evaluate_function=compare_sorted,
-        ground_truth=task_truth,
-    )
-    return Challenge(root, max_budget=budget)
-
-
 def got(task_input: str, task_truth: str) -> Challenge:
     """
     Generates the Challenge to run using the GOT method.
@@ -321,39 +267,56 @@ def fot(task_input: str, task_truth: str) -> Challenge:
     :return: Challenge to run using the FOT method
     :rtype: Challenge
     """
-    ego = Thought(task_input, [], [], is_executable=True)
-    root = ego
-    max_depth = 2
-    for i in range(max_depth):
-        generate = Generate(
-            [ego],
+    # brainstorming
+    root = Thought("You want to sort a list in ascending order.", [], [], is_executable=True)
+    generate_method = Generate(
+        [root],
+        lm,
+        5,
+        generate_prompt=Parser.from_json(prompts, "fot_generate_prompt"),
+    )
+    methods_thoughts = []
+    # generate results by each method
+    for method_thought in generate_method.get_children_thoughts():
+        # try methods
+        max_depth = 2
+        ego=Generate(
+            [method_thought],
             lm,
-            2,
-            generate_prompt=Parser.from_json(prompts, "got_split_prompt"),
-            children_key_list=["List 1", "List 2"],
+            1,
+            generate_prompt=Parser(prompt=f"Given the data {task_input}, use the method {method_thought.content} to sort the data in ascending order.", name="use_method_prompt", plain=True),
         )
-        res = Score(
-            generate.get_children_thoughts(),
-            lm,
-            scoring_function=num_errors,
-            ground_truth=task_truth,
-        )
-        keep_best = KeepBestN(res.get_children_thoughts(), 1, False)
-        if (
-            Score(
-                keep_best.get_children_thoughts(),
+        # improve the result
+        for i in range(max_depth):
+            ego = Improve(
+                ego.get_children_thoughts(),
                 lm,
-                scoring_function=num_errors,
-                ground_truth=task_truth,
+                1,
+                improve_prompt=Parser.from_json(prompts, "fot_improve_prompt"),
+                original_thoughts=[ego.get_children_thoughts()[0]],
             )
-            .get_children_thoughts()[0]
-            .content
-            == "True"
-        ):
-            break
-        ego = keep_best.get_children_thoughts()[0]
-    res = Evaluate(ego, lm, evaluate_function=compare_sorted, ground_truth=task_truth)
-    return Challenge(root, max_budget=budget, max_depth=max_depth)
+        # finalize result
+        extract = Generate(
+            ego.get_children_thoughts(),
+            lm,
+            1,
+            generate_prompt=Parser.from_json(prompts, "extract_sorted_list_prompt"),
+        )
+        methods_thoughts.append(extract.get_children_thoughts()[0])
+    # evaluate the results
+    final_scores = []
+    for method in methods_thoughts:
+        final_scores.append(
+            Score(
+                [method],
+                lm,
+                scoring_function=num_errors
+            ).get_children_thoughts()[0]
+        )
+    # keep the best result
+    keep_best = KeepBestN(final_scores, lm, 1, False)
+    res = Evaluate(keep_best.get_children_thoughts(), lm, evaluate_function=compare_sorted, ground_truth=task_truth)
+    return Challenge(root, max_budget=budget)
 
 
 # main function for sorting_032
@@ -362,8 +325,7 @@ def sorting_032():
     # this section is for testing the sorting task
     # data_ids = [item for item in range(0, 100)]
     data_ids = [0]
-    methods = [tot, tot2, got]
-    # methods = [io,cot,tot,tot2,got,fot]
+    methods = [fot]
     orig_budget = budget
     data_path = os.path.join(os.path.dirname(__file__), "sorting_032.csv")
 

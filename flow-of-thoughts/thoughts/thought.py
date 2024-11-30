@@ -58,5 +58,5 @@ class Thought():
         return {
             "content": self.content,
             "is_executable": self.is_executable,
-            "children_operations": [op.__json__() for op in self.children_operations],
+            "operations": [op.__json__() for op in self.get_children_operations()],
         }
