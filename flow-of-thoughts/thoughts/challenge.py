@@ -2,7 +2,7 @@ import logging
 from typing import List, Tuple
 from language_models.abstract_language_model import AbstractLanguageModel
 from thoughts.thought import Thought
-from thoughts.operations import Operation
+from thoughts.operations import Operation, OperationType
 
 class Challenge():
     def __init__(self, root: Thought, max_budget: float=10, max_thoughts: int=1000):
@@ -76,7 +76,7 @@ class Challenge():
 
     def get_graph(self) -> Tuple[List[Thought],List[Operation]]:
         # get the graph of the challenge with edge and vertex
-        thoughts = set()
+        thoughts = set([self.root])
         operations = set()
         search_queue = [self.root]
         while len(search_queue) > 0:
@@ -90,9 +90,36 @@ class Challenge():
                         search_queue.append(child)
         return [list(thoughts), list(operations)]
     
-
+    def get_final_accuracy(self,numerical_accuracy: bool=False) -> float|tuple[str,str,float]:
+        """
+        Get the final accuracy of the challenge.
+        
+        :param numerical_accuracy: Whether to return the numerical accuracy or the accuracy in the form of a string.
+        :type numerical_accuracy: bool
+        :return: The final accuracy of the challenge. (numerical_accuracy)|(result,expected,accuracy)
+        :rtype: float|tuple[str,str,float]
+        """
+        thoughts, operations = self.get_graph()
+        # we don't care about the duplicates
+        operation_dict={op.operation_type: op for op in operations}
+        if numerical_accuracy:
+            return float(operation_dict[OperationType.evaluate].get_children_thoughts()[0].content) if operation_dict[OperationType.evaluate].get_children_thoughts()[0].content!='' else -1
+        else:
+            return operation_dict[OperationType.evaluate].get_parents_thoughts()[0].content, operation_dict[OperationType.evaluate].ground_truth, float(operation_dict[OperationType.evaluate].get_children_thoughts()[0].content) if operation_dict[OperationType.evaluate].get_children_thoughts()[0].content!='' else -1
+    
     def __str__(self) -> str:
         return f"Challenge(max_budget={self.max_budget}, max_thoughts={self.max_thoughts})"
+    
+    def as_G6_graph(self) -> dict:
+        thoughts, operations = self.get_graph()
+        nodes=[thought.as_G6_node() for thought in thoughts]
+        edges=[]
+        for operation in operations:
+            edges.extend(operation.as_G6_edges())
+        return {
+            "nodes": nodes,
+            "edges": edges,
+        }
     
     def __json__(self) -> dict:
         graph = self.get_graph()
@@ -101,7 +128,7 @@ class Challenge():
             "max_thoughts": self.max_thoughts,
             "total_thoughts_count": len(graph[0]),
             "total_operations_count": len(graph[1]),
-            "graph": {"vertices": [thought.__json__() for thought in graph[0]], "edges": [operation.__json__() for operation in graph[1]]},
+            "graph": {"nodes": [thought.__json__() for thought in graph[0]], "edges": [operation.__json__() for operation in graph[1]]},
         }
 
     def get_remaining_budget(self) -> float:

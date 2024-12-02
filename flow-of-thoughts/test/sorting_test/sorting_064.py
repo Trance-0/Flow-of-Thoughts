@@ -203,6 +203,48 @@ def got(task_input: str, task_truth: str) -> Challenge:
     keep_best_sublist = []
     # sort each sublist
     for split_list in split_lists.get_children_thoughts():
+        split_lists = Split(split_list, lm, ["List 1", "List 2"])
+        keep_best_sublist_1 = []
+        # sort each sublist
+        for split_list_1 in split_lists.get_children_thoughts():
+            sort_split_list_1 = Generate(
+                [split_list_1],
+                lm,
+                1,
+                generate_prompt=Parser.from_json(prompts, "sort_prompt"),
+            )
+            # single layer improvement
+            improve_1 = Improve(
+                sort_split_list_1.get_children_thoughts(),
+                lm,
+                10,
+                improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
+                original_thought=split_list_1,
+            )
+            extract_1 = [
+                Generate(
+                    [g],
+                    lm,
+                    1,
+                    generate_prompt=Parser.from_json(prompts, "extract_sorted_list_prompt"),
+                )
+                for g in improve_1.get_children_thoughts()
+            ]
+            scoring_layer_1 = [
+                Score(
+                    t.get_children_thoughts(), lm, scoring_function=num_errors, original_thought=split_list
+                ).get_children_thoughts()[0]
+                for t in extract_1
+            ]
+            keep_best_1 = KeepBestN(scoring_layer_1, lm, 1, False)
+            keep_best_sublist_1.append(keep_best_1.get_children_thoughts()[0])
+        # merge the sorted sublists with 3 tries
+        aggregate_tries = Aggregate(
+            keep_best_sublist_1,
+            lm,
+            3,
+            aggregate_prompt=Parser.from_json(prompts, "got_merge_prompt"),
+        ).get_children_thoughts()
         sort_split_list = Generate(
             [split_list],
             lm,
@@ -279,7 +321,7 @@ def fot(task_input: str, task_truth: str) -> Challenge:
     # generate results by each method
     for method_thought in generate_method.get_children_thoughts():
         # try methods
-        max_depth = 2
+        max_depth = 4
         ego=Generate(
             [method_thought],
             lm,
@@ -320,8 +362,8 @@ def fot(task_input: str, task_truth: str) -> Challenge:
     return Challenge(root, max_budget=budget)
 
 
-# main function for sorting_032
-def sorting_032():
+# main function for sorting_064
+def sorting_064():
     global budget
     # this section is for testing the sorting task
     # data_ids = [item for item in range(0, 100)]
@@ -329,7 +371,7 @@ def sorting_032():
     methods = [io, cot, tot, got, fot]
     # methods = [tot]
     orig_budget = budget
-    data_path = os.path.join(os.path.dirname(__file__), "sorting_032.csv")
+    data_path = os.path.join(os.path.dirname(__file__), "sorting_064.csv")
 
     data = []
     with open(data_path, "r") as f:

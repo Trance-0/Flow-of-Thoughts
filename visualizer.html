@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Visualizer</title>
+    <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="h-screen flex flex-col">
+    <nav class="bg-gray-800 p-4 flex justify-between items-center">
+        <h1 class="text-white text-lg">Graph Visualizer</h1>
+        <div>
+            <input type="file" id="selectFiles" multiple class="hidden">
+            <button id="import" class="bg-blue-500 text-white px-4 py-2 rounded">Select File</button>
+            <button id="recenter" class="bg-gray-500 text-white px-4 py-2 rounded ml-2" disabled>Recenter</button>
+        </div>
+    </nav>
+    <div class="flex flex-1">
+        <aside class="w-1/4 bg-gray-100 p-4">
+            <textarea id="result" class="w-full h-full border border-gray-300 p-2"
+                placeholder="Import Preview"></textarea>
+        </aside>
+        <main id="container" class="flex-1 bg-white"></main>
+    </div>
+
+    <script>
+        let graph;
+
+        document.getElementById('import').onclick = function () {
+            document.getElementById('selectFiles').click();
+        };
+
+        document.getElementById('selectFiles').onchange = function () {
+            var files = document.getElementById('selectFiles').files;
+            console.log(files);
+            if (files.length <= 0) {
+                return false;
+            }
+
+            var fr = new FileReader();
+
+            fr.onload = function (e) {
+                console.log(e);
+                var result = JSON.parse(e.target.result);
+                var formatted = JSON.stringify(result, null, 2);
+                document.getElementById('result').value = formatted;
+                
+                // Clear the original graph if it exists
+                if (graph) {
+                    graph.destroy();
+                }
+
+                // Create a new G6 graph
+                graph = new G6.Graph({
+                    container: 'container',
+                    width: document.getElementById('container').clientWidth,
+                    height: document.getElementById('container').clientHeight,
+                    data: result,
+                    node: {
+                        type: 'rect',
+                        style: {
+                            radius: 8, // 👈🏻 Set the radius.
+                            size: [240, 80],
+                            labelPlacement: 'center',
+                            labelText: (d) => d.data.content,
+                            labelWordWrap: true,
+                            labelMaxLines: 4,
+                            labelMaxWidth: '90%',
+                        },
+                        palette: {
+                            type: 'group',
+                            field: 'ori_operation',
+                        },
+                    },
+                    edge: {
+                        style: {
+                            endArrow: true,
+                            labelPlacement: 'center',
+                            labelText: (d) => d.label,
+                            labelWordWrap: true,
+                            labelMaxWidth: '90%',
+                        }
+                    },
+                    layout: {
+                        type: 'antv-dagre',
+                        nodeSize: [240, 80],
+                        nodesep: 60,
+                        ranksep: 40,
+                        controlPoints: true,
+                        // type: 'd3-force',
+                        // collide: {
+                        //     strength: 0.5,
+                        // },
+                    },
+                    behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element'],
+                });
+
+                graph.render();
+                document.getElementById('recenter').disabled = false;
+            }
+
+            fr.readAsText(files.item(0));
+        };
+
+        document.getElementById('recenter').onclick = function () {
+            if (graph) {
+                graph.fitView();
+            }
+        };
+    </script>
+</body>
+
+</html>

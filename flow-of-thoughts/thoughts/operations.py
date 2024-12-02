@@ -9,6 +9,7 @@ from thoughts.thought import Thought
 from language_models.abstract_language_model import AbstractLanguageModel
 import logging
 
+
 class OperationType(IntEnum):
     """
     Enum to represent different operation types that can be used as unique identifiers.
@@ -28,6 +29,7 @@ class OperationType(IntEnum):
     def __str__(self) -> str:
         return self.name
 
+
 class Operation(ABC):
     """
     Abstract base class that defines the interface for all operations.
@@ -36,8 +38,15 @@ class Operation(ABC):
     _ids: Iterator[int] = itertools.count(0)
 
     operation_type: OperationType = None
-    
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, children_thoughts: Optional[List[Thought]]=None,input_size: int=-1,output_size: int=-1):
+
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        children_thoughts: Optional[List[Thought]] = None,
+        input_size: int = -1,
+        output_size: int = -1,
+    ):
         """
         Generate child node by defined operation from parent thought
         This is a one-to-one operation, so each operation has only one parent and one child.
@@ -58,13 +67,13 @@ class Operation(ABC):
         self.children_thoughts = children_thoughts
         self.input_size = input_size
         self.output_size = output_size
-        self.logger = logging.getLogger(f'{self.__class__.__name__}')
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
         # validate input size and output size
         if input_size < 1:
             raise ValueError("The input size must be greater than 0")
         if output_size < 1:
             output_size = input_size
-        self.hash = random.randint(0, 2**64-1)
+        self.hash = random.randint(0, 2**64 - 1)
         self.connect_thoughts()
         self.validate_input()
 
@@ -83,13 +92,19 @@ class Operation(ABC):
         Validate the number of parent thoughts and child thoughts in this method
         """
         # auto generate children thoughts
-        if self.get_children_thoughts is None or len(self.get_children_thoughts())==0:
+        if self.get_children_thoughts is None or len(self.get_children_thoughts()) == 0:
             if self.output_size == 1:
-                self.logger.warning("No child thoughts provided,a new thought will be created")
-                self.children_thoughts = [Thought("",[self],[])]
+                self.logger.warning(
+                    "No child thoughts provided,a new thought will be created"
+                )
+                self.children_thoughts = [Thought("", [self], [])]
             else:
-                self.logger.warning(f"No child thoughts provided, {self.output_size} new thoughts will be created")
-                self.children_thoughts = [Thought("",[self],[]) for _ in range(self.output_size)]
+                self.logger.warning(
+                    f"No child thoughts provided, {self.output_size} new thoughts will be created"
+                )
+                self.children_thoughts = [
+                    Thought("", [self], []) for _ in range(self.output_size)
+                ]
         # connect thoughts with operation
         self.logger.info(f"Connecting {self.input_size} parent thoughts to {self}")
         for parent in self.get_parents_thoughts():
@@ -98,7 +113,7 @@ class Operation(ABC):
     @abstractmethod
     def generate_children(self) -> float:
         """
-        Generate child node by defined operation from parent thought, 
+        Generate child node by defined operation from parent thought,
         And assign value to self.child_thoughts if applicable
 
         :return: cost of the operation
@@ -112,23 +127,40 @@ class Operation(ABC):
 
     def get_children_thoughts(self) -> List[Thought]:
         return self.children_thoughts if self.children_thoughts is not None else []
-    
+
     def get_parents_thoughts(self) -> List[Thought]:
         return self.parents_thoughts if self.parents_thoughts is not None else []
-    
+
     @abstractmethod
     def __str__(self) -> str:
         pass
-    
+
+    @abstractmethod
+    def __full_json__(self) -> dict:
+        pass
+
+    @abstractmethod
+    def as_G6_edges(self) -> List[dict]:
+        pass
+
     @abstractmethod
     def __json__(self) -> dict:
         pass
-    
+
+
 class Parser:
     """
     Class for parsing the input and output of a language model.
     """
-    def __init__(self, prompt: str, cot: str=None, shots: List[dict]=None,name: str="unnamed",plain=False):
+
+    def __init__(
+        self,
+        prompt: str,
+        cot: str = None,
+        shots: List[dict] = None,
+        name: str = "unnamed",
+        plain=False,
+    ):
         """
         Initialize a parser.
 
@@ -146,54 +178,57 @@ class Parser:
         self.shots = shots
         self.name = name
         self.plain = plain
-        self.logger = logging.getLogger(f'{self.__class__.__name__}')
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
-    def parse(self,input: str) -> str:
+    def parse(self, input: str) -> str:
         """
         Parse the input to a string that can be used as a query to a language model.
         """
         if self.plain:
             return self.prompt
-        res=f'<Instruction> {self.prompt} </Instruction>'
+        res = f"<Instruction> {self.prompt} </Instruction>"
         if self.cot is not None and len(self.cot) > 0:
-            res += f'\n<Approach>\n{self.cot}\n</Approach>'
+            res += f"\n<Approach>\n{self.cot}\n</Approach>"
         if self.shots is not None and len(self.shots) > 0:
-            partial_examples=[]
+            partial_examples = []
             for shot in self.shots:
-                current_example=""
-                current_example+=f"Input: {shot['input']}\n"
+                current_example = ""
+                current_example += f"Input: {shot['input']}\n"
                 for key, value in shot.items():
                     if key != "input" and key != "output":
-                        current_example+=f"{key}: {value}\n"
-                current_example+=f"Output: {shot['output']}"
+                        current_example += f"{key}: {value}\n"
+                current_example += f"Output: {shot['output']}"
                 partial_examples.append(current_example)
-            res += '\n<Examples>\n'+\
-            '\n'.join(partial_examples)+\
-            '\n</Examples>'
-        res=res+f"\nInput: {input}"
+            res += "\n<Examples>\n" + "\n".join(partial_examples) + "\n</Examples>"
+        res = res + f"\nInput: {input} \nOutput:"
         self.logger.info(f"Parser input: {input}, final prompt: {res}")
         return res
 
     @staticmethod
-    def from_dict(prompt: dict) -> 'Parser':
+    def from_dict(prompt: dict) -> "Parser":
         """
         Initialize a parser from a dictionary.
         """
-        return Parser(prompt["instruction"], prompt.get("approach", ""), prompt.get("examples", []), name=prompt.get("name", "unnamed"))
-    
+        return Parser(
+            prompt["instruction"],
+            prompt.get("approach", ""),
+            prompt.get("examples", []),
+            name=prompt.get("name", "unnamed"),
+        )
+
     @staticmethod
-    def from_json(json_data: dict, name: str="unnamed") -> 'Parser':
+    def from_json(json_data: dict, name: str = "unnamed") -> "Parser":
         """
         Initialize a parser from a json dictionary.
         """
         content = json_data[name]
-        parser=Parser.from_dict(content)
+        parser = Parser.from_dict(content)
         parser.name = name
         return parser
 
     def __str__(self) -> str:
         return f"Parser(prompt={self.prompt}, cot={self.cot}, shots={self.shots}, name={self.name})"
-    
+
     def __json__(self) -> dict:
         return {
             "name": self.name,
@@ -207,13 +242,20 @@ class Generate(Operation):
     """
     Operation to generate thoughts.
 
-    Input: one thought to generate children from 
+    Input: one thought to generate children from
     Output: children thoughts
     """
 
     operation_type: OperationType = OperationType.generate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, generate_prompt:Parser=None, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        branching_factor: int,
+        generate_prompt: Parser = None,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Generate operation.
 
@@ -233,37 +275,77 @@ class Generate(Operation):
             raise ValueError("generate_prompt must be provided")
         self.generate_prompt = generate_prompt
         # default name for unnamed generate prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=branching_factor)
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=branching_factor,
+        )
 
     def generate_children(self) -> float:
-        self.logger.info(f"Generating {self.branching_factor} children for {self.parents_thoughts}")
+        self.logger.info(
+            f"Generating {self.branching_factor} children for {self.parents_thoughts}"
+        )
         query = None
         # if generate multiple children thoughts
         if self.branching_factor > 1:
-            self.logger.info(f"Generating {self.branching_factor} children for {self.parents_thoughts} with different tries")
-            query = self.language_model.query(self.generate_prompt.parse(self.parents_thoughts[0].content),num_responses=self.branching_factor)
+            self.logger.info(
+                f"Generating {self.branching_factor} children for {self.parents_thoughts} with different tries"
+            )
+            query = self.language_model.query(
+                self.generate_prompt.parse(self.parents_thoughts[0].content),
+                num_responses=self.branching_factor,
+            )
             response_texts = self.language_model.get_response_texts(query)
             for i in range(self.branching_factor):
                 child = self.children_thoughts[i]
                 child.content = response_texts[i]
                 child.is_executable = True
         else:
-            query = self.language_model.query(self.generate_prompt.parse(self.parents_thoughts[0].content))
+            query = self.language_model.query(
+                self.generate_prompt.parse(self.parents_thoughts[0].content)
+            )
             child = self.children_thoughts[0]
             child.content = self.language_model.get_response_texts(query)[0]
             child.is_executable = True
         return self.language_model.get_response_cost(query)
-    
+
     def __str__(self) -> str:
         return f"Generate(generate_prompt_name={self.generate_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
-    
-    def __json__(self) -> dict:
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "generate_prompt_name": self.generate_prompt.name,
-            "children_thoughts": [child.__json__() for child in self.get_children_thoughts()],
+            "children_thoughts": [
+                child.__json__() for child in self.get_children_thoughts()
+            ],
         }
-    
+
+    def as_G6_edges(self) -> List[dict]:
+        res = []
+        for child in self.get_children_thoughts():
+            res.append(
+                {
+                    "source": hex(self.get_parents_thoughts()[0].hash),
+                    "target": hex(child.hash),
+                    "label": self.generate_prompt.name,
+                }
+            )
+        return res
+
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "id": hex(self.hash),
+            "generate_prompt_name": self.generate_prompt.name,
+            "children_thoughts": [
+                hex(child.hash) for child in self.get_children_thoughts()
+            ],
+        }
+
+
 class Evaluate(Operation):
     """
     Operation to evaluate thoughts by comparing the output of the thought with the truth.
@@ -271,7 +353,15 @@ class Evaluate(Operation):
 
     operation_type: OperationType = OperationType.evaluate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, evaluate_prompt: Optional['Parser']=None, evaluate_prompt_name: str="unnamed", evaluate_function: Callable[[Thought,Any], float]=None, ground_truth: Any=None, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        evaluate_prompt: Optional["Parser"] = None,
+        evaluate_function: Callable[[Thought, Any], float] = None,
+        ground_truth: Any = None,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Evaluate operation.
 
@@ -291,18 +381,27 @@ class Evaluate(Operation):
         :type children_thoughts: List[Thought]
         """
         if (evaluate_function is None) and (evaluate_prompt is None):
-            raise ValueError("Either evaluate_function or evaluate_prompt must be provided")
+            raise ValueError(
+                "Either evaluate_function or evaluate_prompt must be provided"
+            )
         if (evaluate_function is not None) and (evaluate_prompt is not None):
-            raise ValueError("Only one of evaluate_function or evaluate_prompt can be provided")
-        if evaluate_function is not None:
-            self.evaluate_function = evaluate_function
-            if ground_truth is None:
-                raise ValueError("ground_truth must be provided when evaluate_function is used")
-            self.ground_truth = ground_truth
-        if evaluate_prompt is not None:
-            self.evaluate_prompt = evaluate_prompt
-            self.evaluate_prompt_name = evaluate_prompt_name
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
+            raise ValueError(
+                "Only one of evaluate_function or evaluate_prompt can be provided"
+            )
+        self.evaluate_function = evaluate_function
+        if evaluate_function is not None and ground_truth is None:
+            raise ValueError(
+                "ground_truth must be provided when evaluate_function is used"
+            )
+        self.ground_truth = ground_truth
+        self.evaluate_prompt = evaluate_prompt
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=1,
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Evaluating thought: {self.parents_thoughts}")
@@ -311,33 +410,76 @@ class Evaluate(Operation):
         if self.evaluate_function is not None:
             score = self.evaluate_function(self.parents_thoughts[0], self.ground_truth)
         else:
-            query = self.language_model.query(self.evaluate_prompt.parse(self.parents_thoughts[0].content))
+            query = self.language_model.query(
+                self.evaluate_prompt.parse(self.parents_thoughts[0].content)
+            )
             score = float(self.language_model.get_response_texts(query)[0])
             cost += self.language_model.get_response_cost(query)
         self.children_thoughts[0].content = score
         self.children_thoughts[0].is_executable = True
         return cost
-    
+
     def __str__(self) -> str:
         if self.evaluate_function is not None:
-            return f"Evaluate(evaluate_function={self.evaluate_function}, ground_truth={self.ground_truth}, children_thoughts={self.children_thoughts})"
+            return f"Evaluate(evaluate_function={self.evaluate_function}, ground_truth={self.ground_truth}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
         else:
-            return f"Evaluate(evaluate_prompt_name={self.evaluate_prompt.name}, children_thoughts={self.children_thoughts})"    
+            return f"Evaluate(evaluate_prompt_name={self.evaluate_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
 
-    def __json__(self) -> dict:
-        if self.evaluate_function is not None:  
+    def __full_json__(self) -> dict:
+        if self.evaluate_function is not None:
             return {
                 "operation_type": self.operation_type,
                 "evaluate_function": self.evaluate_function.__name__,
                 "ground_truth": self.ground_truth,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
         else:
             return {
                 "operation_type": self.operation_type,
                 "evaluate_prompt_name": self.evaluate_prompt.name,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "ground_truth": self.ground_truth,
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
+
+    def as_G6_edges(self) -> List[dict]:
+        return [
+            {
+                "source": hex(self.get_parents_thoughts()[0].hash),
+                "target": hex(self.get_children_thoughts()[0].hash),
+                "label": (
+                    self.evaluate_prompt.name
+                    if self.evaluate_prompt is not None
+                    else self.evaluate_function.__name__
+                ),
+            }
+        ]
+
+    def __json__(self) -> dict:
+        if self.evaluate_function is not None:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "evaluate_function": self.evaluate_function.__name__,
+                "ground_truth": self.ground_truth,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+        else:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "evaluate_prompt_name": self.evaluate_prompt.name,
+                "ground_truth": self.ground_truth,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+
 
 class Score(Operation):
     """
@@ -349,7 +491,15 @@ class Score(Operation):
 
     operation_type: OperationType = OperationType.score
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, scoring_function: Callable[[Thought], float]=None, scoring_prompt: Optional['Parser']=None, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        original_thought: Thought,
+        scoring_function: Callable[[Thought, Thought], float] = None,
+        scoring_prompt: Optional["Parser"] = None,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Score operation.
 
@@ -357,54 +507,108 @@ class Score(Operation):
         :type parents_thoughts: List[Thought]
         :param language_model: The language model to use for scoring.
         :type language_model: AbstractLanguageModel
-        :param is_one_to_one: Whether the operation is one-to-one, that is, whether the length of the parent thoughts and child thoughts must be the same. Defaults to True.
-        :type is_one_to_one: bool
+        :param original_thought: The original thought to score.
+        :type original_thought: Thought
         :param scoring_function: A function to score thoughts.
-        :type scoring_function: Callable[[Thought], float]
+        :type scoring_function: Callable[[Thought, Thought], float]
         :param scoring_prompt: A parser to score thoughts.
         :type scoring_prompt: Parser
         :param children_thoughts: The child thoughts to score length must be 1, will only generate one child thought.
         :type children_thoughts: List[Thought]
         """
+        self.original_thought = original_thought
         self.scoring_function = scoring_function
         self.scoring_prompt = scoring_prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
-
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=1,
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Scoring thought: {self.parents_thoughts}")
         cost = 0
         if self.scoring_function is not None:
-            score = self.scoring_function(self.parents_thoughts[0])
+            score = self.scoring_function(
+                self.parents_thoughts[0], self.original_thought
+            )
         else:
-            query = self.language_model.query(self.scoring_prompt.parse(self.parents_thoughts[0].content))
+            query = self.language_model.query(
+                f"Input:{self.scoring_prompt.parse(self.parents_thoughts[0].content)}\n original_thought:{self.original_thought.content}"
+            )
             score = float(self.language_model.get_response_texts(query)[0])
             cost += self.language_model.get_response_cost(query)
         self.children_thoughts[0].content = score
         self.children_thoughts[0].is_executable = True
         return cost
-    
+
     def __str__(self) -> str:
         if self.scoring_function is not None:
-            return f"Score(scoring_function={self.scoring_function}, children_thoughts={self.children_thoughts})"
+            return f"Score(scoring_function={self.scoring_function}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
         else:
-            return f"Score(scoring_prompt_name={self.scoring_prompt.name}, children_thoughts={self.children_thoughts})"
+            return f"Score(scoring_prompt_name={self.scoring_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
 
-    def __json__(self) -> dict:
+    def __full_json__(self) -> dict:
         if self.scoring_function is not None:
             return {
                 "operation_type": self.operation_type,
                 "scoring_function": self.scoring_function.__name__,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
         else:
             return {
                 "operation_type": self.operation_type,
                 "scoring_prompt_name": self.scoring_prompt.name,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
-    
-    
+
+    def as_G6_edges(self) -> List[dict]:
+        return [
+            {
+                "source":hex(self.original_thought.hash),
+                "target":hex(self.get_children_thoughts()[0].hash),
+                "label": "original_thought",
+            },
+            {
+                "source": hex(self.get_parents_thoughts()[0].hash),
+                "target": hex(self.get_children_thoughts()[0].hash),
+                "label": (
+                    self.scoring_prompt.name
+                    if self.scoring_prompt is not None
+                    else self.scoring_function.__name__
+                ),
+            }
+        ]
+
+    def __json__(self) -> dict:
+        if self.scoring_function is not None:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "original_thought_content": self.original_thought.content,
+                "scoring_function": self.scoring_function.__name__,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+        else:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "original_thought_content": self.original_thought.content,
+                "scoring_prompt_name": self.scoring_prompt.name,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+
+
 class Improve(Operation):
     """
     Operation to improve thoughts by querying a language model. (assume the refined thought is better)
@@ -413,7 +617,15 @@ class Improve(Operation):
 
     operation_type: OperationType = OperationType.improve
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, original_thoughts:List[Thought],improve_prompt: Parser, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        branching_factor: int,
+        original_thought: Thought,
+        improve_prompt: Parser,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Improve operation.
 
@@ -428,32 +640,71 @@ class Improve(Operation):
         :param children_thoughts: The child thoughts to improve.
         :type children_thoughts: List[Thought]
         """
-        if len(original_thoughts)!=1:
-            raise ValueError("original_thoughts must have one thought")
         self.branching_factor = branching_factor
         self.improve_prompt = improve_prompt
-        self.original_thoughts = original_thoughts
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=branching_factor)
+        self.original_thought = original_thought
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=branching_factor,
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Improving thought: {self.get_parents_thoughts()}")
-        parent_thought=self.get_parents_thoughts()[0]
-        original_thought=self.original_thoughts[0]
-        query = self.language_model.query(self.improve_prompt.parse(f"Input: {original_thought.content}, \n Incorrect output: {parent_thought.content}"),num_responses=self.branching_factor)
+        parent_thought = self.get_parents_thoughts()[0]
+        original_thought = self.original_thought
+        query = self.language_model.query(
+            self.improve_prompt.parse(
+                f"Input: {original_thought.content}, \n Incorrect output: {parent_thought.content}"
+            ),
+            num_responses=self.branching_factor,
+        )
         for i in range(self.branching_factor):
-            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
+            self.children_thoughts[i].content = self.language_model.get_response_texts(
+                query
+            )[i]
             self.children_thoughts[i].is_executable = True
         return self.language_model.get_response_cost(query)
-    
+
     def __str__(self) -> str:
-        return f"Improve(improve_prompt_name={self.improve_prompt.name}, children_thoughts={self.children_thoughts})"
-    
-    def __json__(self) -> dict:
+        return f"Improve(improve_prompt_name={self.improve_prompt.name}, original_thought_content={self.original_thought.content}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "improve_prompt_name": self.improve_prompt.name,
-            "original_thoughts_content": self.original_thoughts[0].content,
+            "original_thoughts_content": self.original_thought.content,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
+        }
+
+    def as_G6_edges(self) -> List[dict]:
+        res = []
+        for child in self.get_children_thoughts():
+            res.append(
+                {
+                    "source": hex(self.get_parents_thoughts()[0].hash),
+                    "target": hex(child.hash),
+                    "label": self.improve_prompt.name,
+                }
+            )
+            res.append(
+                {
+                    "source": hex(self.original_thought.hash),
+                    "target": hex(child.hash),
+                    "label": "original_thought",
+                }
+            )
+        return res
+
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "hash": self.hash,
+            "improve_prompt_name": self.improve_prompt.name,
+            "original_thought_content": self.original_thought.content,
+            "children_thoughts": [child.hash for child in self.get_children_thoughts()],
         }
 
 
@@ -464,10 +715,17 @@ class Validate(Operation):
 
     operation_type: OperationType = OperationType.validate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, validate_function: Callable[[str], bool]=None, validate_prompt:Parser=None, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        validate_function: Callable[[str], bool] = None,
+        validate_prompt: Parser = None,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Validate operation.
-        
+
         :param parents_thoughts: The parent thoughts to validate and improve.
         :type parents_thoughts: List[Thought]
         :param validate_function: A function to validate thoughts (if not using LM).
@@ -480,21 +738,32 @@ class Validate(Operation):
         if validate_function is None and validate_prompt is None:
             raise ValueError("validate_function or validate_prompt must be provided")
         if validate_function is not None and validate_prompt is not None:
-            raise ValueError("validate_function and validate_prompt cannot be provided at the same time")
+            raise ValueError(
+                "validate_function and validate_prompt cannot be provided at the same time"
+            )
         self.validate_function = validate_function
         self.validate_prompt = validate_prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
-
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=1,
+        )
 
     def generate_children(self) -> float:
-        parent=self.parents_thoughts[0]
+        parent = self.parents_thoughts[0]
         cost = 0
         if self.validate_function is not None:
             self.children_thoughts[0].content = self.validate_function(parent.content)
         else:
-            query = self.language_model.query(self.validate_prompt.parse(parent.content))
+            query = self.language_model.query(
+                self.validate_prompt.parse(parent.content)
+            )
             cost += self.language_model.get_response_cost(query)
-            self.children_thoughts[0].content = self.language_model.get_response_texts(query)[0]
+            self.children_thoughts[0].content = self.language_model.get_response_texts(
+                query
+            )[0]
         self.children_thoughts[0].is_executable = True
         self.logger.info(f"Validated thought: {self.children_thoughts}")
         return cost
@@ -504,20 +773,58 @@ class Validate(Operation):
             return f"Validate(validate_function={self.validate_function.__name__})"
         else:
             return f"Validate(validate_prompt_name={self.validate_prompt.name})"
-    
-    def __json__(self) -> dict:
+
+    def __full_json__(self) -> dict:
         if self.validate_function is not None:
             return {
                 "operation_type": self.operation_type,
                 "validate_function": self.validate_function.__name__,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
         else:
             return {
                 "operation_type": self.operation_type,
                 "validate_prompt_name": self.validate_prompt.name,
-                "children_thoughts": [child.__json__() for child in self.children_thoughts],
+                "children_thoughts": [
+                    child.__json__() for child in self.children_thoughts
+                ],
             }
+
+    def as_G6_edges(self) -> List[dict]:
+        return [
+            {
+                "source": hex(self.get_parents_thoughts()[0].hash),
+                "target": hex(self.get_children_thoughts()[0].hash),
+                "label": (
+                    self.validate_prompt.name
+                    if self.validate_prompt is not None
+                    else self.validate_function.__name__
+                ),
+            }
+        ]
+
+    def __json__(self) -> dict:
+        if self.validate_function is not None:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "validate_function": self.validate_function.__name__,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+        else:
+            return {
+                "operation_type": self.operation_type,
+                "hash": self.hash,
+                "validate_prompt_name": self.validate_prompt.name,
+                "children_thoughts": [
+                    child.hash for child in self.get_children_thoughts()
+                ],
+            }
+
 
 class Aggregate(Operation):
     """
@@ -526,7 +833,14 @@ class Aggregate(Operation):
 
     operation_type: OperationType = OperationType.aggregate
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, branching_factor: int, aggregate_prompt: Optional['Parser'], children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        branching_factor: int,
+        aggregate_prompt: Optional["Parser"],
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Aggregate operation.
 
@@ -543,39 +857,91 @@ class Aggregate(Operation):
             raise ValueError("aggregate_prompt must be provided")
         self.aggregate_prompt = aggregate_prompt
         self.branching_factor = branching_factor
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=2, output_size=branching_factor)
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=2,
+            output_size=branching_factor,
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Aggregating thoughts: {self.parents_thoughts}")
-        query = self.language_model.query(self.aggregate_prompt.parse("\n".join([f"Input {i+1}: {parent.content}" for i, parent in enumerate(self.parents_thoughts)])),num_responses=self.branching_factor)
+        query = self.language_model.query(
+            self.aggregate_prompt.parse(
+                "\n".join(
+                    [
+                        f"Input {i+1}: {parent.content}"
+                        for i, parent in enumerate(self.parents_thoughts)
+                    ]
+                )
+            ),
+            num_responses=self.branching_factor,
+        )
         for i in range(self.branching_factor):
-            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
+            self.children_thoughts[i].content = self.language_model.get_response_texts(
+                query
+            )[i]
             self.children_thoughts[i].is_executable = True
         return self.language_model.get_response_cost(query)
-    
+
     def __str__(self) -> str:
-        return f"Aggregate(aggregate_prompt_name={self.aggregate_prompt.name}, children_thoughts={self.children_thoughts})"
-    
-    def __json__(self) -> dict:
+        return f"Aggregate(aggregate_prompt_name={self.aggregate_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "aggregate_prompt_name": self.aggregate_prompt.name,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
-    
+
+    def as_G6_edges(self) -> List[Dict]:
+        res = []
+        for parent in self.get_parents_thoughts():
+            for child in self.get_children_thoughts():
+                res.append(
+                    {
+                        "source": hex(parent.hash),
+                        "target": hex(child.hash),
+                        "label": self.aggregate_prompt.name,
+                    }
+                )
+        return res
+
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "hash": self.hash,
+            "aggregate_prompt_name": self.aggregate_prompt.name,
+            "children_thoughts": [child.hash for child in self.get_children_thoughts()],
+        }
+
+
 class Split(Operation):
     """
     Operation to split thoughts.
     """
 
-    operation_type: OperationType = OperationType.split 
+    operation_type: OperationType = OperationType.split
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, split_key: List[str], children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        split_key: List[str],
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Split operation.
         """
         self.split_key = split_key
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=len(split_key))
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=len(split_key),
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Splitting thought: {self.parents_thoughts}")
@@ -583,22 +949,45 @@ class Split(Operation):
         try:
             parent_content = json.loads(self.parents_thoughts[0].content)
         except:
-            self.logger.error("Parent thought content is not a valid JSON format, please check the prompt or the thought content")
+            self.logger.error(
+                "Parent thought content is not a valid JSON format, please check the prompt or the thought content"
+            )
         for i in range(len(self.split_key)):
             self.children_thoughts[i].content = parent_content[self.split_key[i]]
             self.children_thoughts[i].is_executable = True
             self.children_thoughts[i].append_parent_operation(self.parents_thoughts[0])
         return 0
-    
+
     def __str__(self) -> str:
-        return f"Split(split_key={self.split_key}, children_thoughts={self.children_thoughts})"
-    
-    def __json__(self) -> dict:
+        return f"Split(split_key={self.split_key}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "split_key": self.split_key,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
+
+    def as_G6_edges(self) -> List[Dict]:
+        res = []
+        for index, child in enumerate(self.get_children_thoughts()):
+            res.append(
+                {
+                    "source": hex(self.get_parents_thoughts()[0].hash),
+                    "target": hex(child.hash),
+                    "label": self.split_key[index],
+                }
+            )
+        return res
+
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "hash": self.hash,
+            "split_key": self.split_key,
+            "children_thoughts": [child.hash for child in self.get_children_thoughts()],
+        }
+
 
 class KeepBestN(Operation):
     """
@@ -607,10 +996,17 @@ class KeepBestN(Operation):
 
     operation_type: OperationType = OperationType.keep_best_n
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, n: int, highest_score_first: bool=True, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        n: int,
+        highest_score_first: bool = True,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new KeepBestN operation.
-        
+
         :param parents_thoughts: The parent thoughts to keep the best N.
         :type parents_thoughts: List[Thought]
         :param language_model: The language model to use for keeping the best N thoughts.
@@ -621,29 +1017,41 @@ class KeepBestN(Operation):
         :type highest_score_first: bool
         """
         for parent in parents_thoughts:
-            if len(parent.get_parents_operations())!=1 or parent.get_parents_operations()[0].operation_type!=OperationType.score:
+            if (
+                len(parent.get_parents_operations()) != 1
+                or parent.get_parents_operations()[0].operation_type
+                != OperationType.score
+            ):
                 raise ValueError("All parent thoughts must be scored")
         self.n = n
         self.highest_score_first = highest_score_first
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=len(parents_thoughts), output_size=n)
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=len(parents_thoughts),
+            output_size=n,
+        )
 
     def generate_children(self) -> float:
         self.logger.info(f"Keeping best {self.n} thoughts: {self.parents_thoughts}")
-        q=[]
+        q = []
         for parent in self.get_parents_thoughts():
             q.append((float(parent.content), parent))
         q.sort(key=lambda x: x[0], reverse=self.highest_score_first)
         self.logger.info(f"First 10 sorted thoughts: {q[:10]}")
         for i in range(self.n):
             # going up two levels, ignoring the parent scoring layer
-            self.children_thoughts[i].content = q[i][1].get_parents_operations()[0].get_parents_thoughts()[0].content
+            self.children_thoughts[i].content = (
+                q[i][1].get_parents_operations()[0].get_parents_thoughts()[0].content
+            )
             self.children_thoughts[i].is_executable = True
         return 0
-    
+
     def __str__(self) -> str:
-        return f"KeepBestN(n={self.n}, highest_score_first={self.highest_score_first}, children_thoughts={self.children_thoughts})"
-    
-    def __json__(self) -> dict:
+        return f"KeepBestN(n={self.n}, highest_score_first={self.highest_score_first}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "n": self.n,
@@ -651,29 +1059,70 @@ class KeepBestN(Operation):
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
 
+    def as_G6_edges(self) -> List[Dict]:
+        res = []
+        for child in self.get_children_thoughts():
+            for parent in self.get_parents_thoughts():
+                res.append(
+                    {
+                        "source": hex(parent.hash),
+                        "target": hex(child.hash),
+                        "label": f"KeepBestN({self.n})",
+                    }
+                )
+        return res
+
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "hash": self.hash,
+            "n": self.n,
+            "highest_score_first": self.highest_score_first,
+            "children_thoughts": [child.hash for child in self.get_children_thoughts()],
+        }
+
+
 class Conditional(Operation):
     """
-    Operation to conditionally execute thoughts.
+    Operation to condition thoughts.
     """
 
     operation_type: OperationType = OperationType.conditional
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, conditional_thoughts: List[Thought], condition_function: Callable[[List[Thought]], bool], conditional_prompt: Parser, children_thoughts: List[Thought]=None):
+    def __init__(
+        self,
+        parents_thoughts: List[Thought],
+        language_model: AbstractLanguageModel,
+        conditional_thoughts: List[Thought],
+        condition_function: Callable[[str], bool] = None,
+        conditional_prompt: Parser = None,
+        children_thoughts: List[Thought] = None,
+    ):
         """
         Initialize a new Conditional operation.
         """
-        if len(conditional_thoughts)<1:
+        if len(conditional_thoughts) < 1:
             raise ValueError("conditional_thoughts must have at least one thought")
         self.conditional_thoughts = conditional_thoughts
         if condition_function is None and conditional_prompt is None:
-            raise ValueError("condition_function or conditional_prompt must be provided")
+            raise ValueError(
+                "condition_function or conditional_prompt must be provided"
+            )
         if condition_function is not None and conditional_prompt is not None:
-            raise ValueError("condition_function and conditional_prompt cannot be provided at the same time")
+            raise ValueError(
+                "condition_function and conditional_prompt cannot be provided at the same time"
+            )
         self.condition_function = condition_function
         self.conditional_prompt = conditional_prompt
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=1, output_size=1)
+        super().__init__(
+            parents_thoughts,
+            language_model,
+            children_thoughts,
+            input_size=1,
+            output_size=1,
+        )
 
-    def __check_condition(self) -> Tuple[bool,float]:
+    def __check_condition(self) -> Tuple[bool, float]:
         """
         Check if the condition is met.
 
@@ -683,52 +1132,67 @@ class Conditional(Operation):
         if self.condition_function is not None:
             return self.condition_function(self.conditional_thoughts), 0
         else:
-            query = self.language_model.query(self.conditional_prompt.parse(self.parents_thoughts[0].content))
-            return float(self.language_model.get_response_texts(query)[0]), self.language_model.get_response_cost(query)
+            query = self.language_model.query(
+                self.conditional_prompt.parse(self.parents_thoughts[0].content)
+            )
+            return float(
+                self.language_model.get_response_texts(query)[0]
+            ), self.language_model.get_response_cost(query)
 
     def generate_children(self) -> float:
         self.logger.info(f"Conditioning thought: {self.parents_thoughts}")
         condition_met, cost = self.__check_condition()
         if condition_met:
             self.logger.info("Condition met, executing thought")
-            query = self.language_model.query(self.conditional_prompt.parse(self.parents_thoughts[0].content))
-            self.children_thoughts[0].content = self.language_model.get_response_texts(query)[0]
+            query = self.language_model.query(
+                self.conditional_prompt.parse(self.parents_thoughts[0].content)
+            )
+            self.children_thoughts[0].content = self.language_model.get_response_texts(
+                query
+            )[0]
             self.children_thoughts[0].is_executable = True
             return cost + self.language_model.get_response_cost(query)
         else:
             self.logger.info("Condition not met, skipping execution")
             self.children_thoughts[0].content = self.parents_thoughts[0].content
             return cost
-    
+
     def __str__(self) -> str:
-        return f"Conditional(conditional_prompt_name={self.conditional_prompt.name}, children_thoughts={self.children_thoughts})"
-    
-    def __json__(self) -> dict:
+        return f"Conditional(conditional_prompt_name={self.conditional_prompt.name}, children_thoughts=[{len(self.get_children_thoughts())}]={','.join([str(child) for child in self.get_children_thoughts()])})"
+
+    def __full_json__(self) -> dict:
         return {
             "operation_type": self.operation_type,
             "conditional_prompt_name": self.conditional_prompt.name,
             "children_thoughts": [child.__json__() for child in self.children_thoughts],
         }
-    
-class Retrieve(Operation):
-    """
-    Operation to retrieve thoughts.
-    """
 
-    operation_type: OperationType = OperationType.retrieve
+    def as_G6_edges(self) -> List[Dict]:
+        res = [
+            {
+                "source": hex(self.get_children_thoughts()[0].hash),
+                "target": hex(self.get_parents_thoughts()[0].hash),
+                "label": (
+                    self.conditional_prompt.name
+                    if self.condition_function is None
+                    else self.condition_function.__name__
+                ),
+            }
+        ]
+        for conditional_thought in self.conditional_thoughts:
+            res.append(
+                {
+                    "source": hex(conditional_thought.hash),
+                    "target": hex(self.get_children_thoughts()[0].hash),
+                    "label": "Condition",
+                }
+            )
+        return res
 
-    def __init__(self, parents_thoughts: List[Thought], language_model: AbstractLanguageModel, retrieve_prompt: Parser, max_retrieve: int, children_thoughts: List[Thought]=None):
-        """
-        Initialize a new Retrieve operation.
-        """
-        self.retrieve_prompt = retrieve_prompt
-        self.max_retrieve = max_retrieve
-        super().__init__(parents_thoughts, language_model, children_thoughts, input_size=len(parents_thoughts), output_size=max_retrieve)
-
-    def generate_children(self) -> float:
-        self.logger.info(f"Retrieving thoughts: {self.parents_thoughts}")
-        query = self.language_model.query(self.retrieve_prompt.parse("\n".join([f"Input {i+1}: {parent.content}" for i, parent in enumerate(self.parents_thoughts)])),num_responses=self.max_retrieve)
-        for i in range(self.max_retrieve):
-            self.children_thoughts[i].content = self.language_model.get_response_texts(query)[i]
-            self.children_thoughts[i].is_executable = True
-        return self.language_model.get_response_cost(query)
+    def __json__(self) -> dict:
+        return {
+            "operation_type": self.operation_type,
+            "hash": self.hash,
+            "conditional_prompt_name": self.conditional_prompt.name,
+            "children_thoughts": [child.hash for child in self.get_children_thoughts()],
+        }
