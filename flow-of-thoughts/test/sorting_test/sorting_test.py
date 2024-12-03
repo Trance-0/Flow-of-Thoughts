@@ -4,7 +4,9 @@ import datetime
 import json
 import logging
 import os
+from typing import List
 from language_models.chatgpt import ChatGPT
+from language_models.claude import Claude
 from thoughts.thought import Thought
 from thoughts.operations import (
     Aggregate,
@@ -13,6 +15,7 @@ from thoughts.operations import (
     Evaluate,
     Improve,
     KeepBestN,
+    Link,
     Parser,
     Score,
     Split,
@@ -28,8 +31,8 @@ lm = ChatGPT(
     cache=True,
 )
 
-# lm_name = "llama3.2-1b-instruct-hf"
-# lm = LlamaHF(
+# lm_name = "claude-3.5-sonnet"
+# lm = Claude(
 #     model_name=lm_name,
 #     cache=True,
 # )
@@ -39,6 +42,9 @@ prompts = None
 # load prompts
 with open(os.path.join(os.path.dirname(__file__), "sort_prompt.json"), "r") as f:
     prompts = json.load(f)
+
+def str_to_list(s: str) -> list:
+    return [int(x) for x in s[1:-1].split(",")]
 
 
 def num_errors(thought: Thought, original_thought: Thought) -> int:
@@ -50,8 +56,13 @@ def num_errors(thought: Thought, original_thought: Thought) -> int:
     :return: The number of errors in the sorted array
     :rtype: int
     """
-    y = eval(thought.content)
-    y_truth = sorted(eval(original_thought.content))
+    y = str_to_list(thought.content)
+    y_truth = sorted(str_to_list(original_thought.content))
+    if len(y) != len(y_truth):
+        if len(y) < len(y_truth):
+            y.extend([-1] * (len(y_truth) - len(y)))
+        else:
+            y_truth.extend([-1] * (len(y) - len(y_truth)))
     return sum([1 for i in range(len(y)) if y[i] != y_truth[i]])+abs(len(y)-len(y_truth))
 
 
@@ -66,8 +77,8 @@ def compare_sorted(thought: Thought, truth: str) -> float:
     :return: The percentage of errors in the sorted array, 0 means no error, 1 means all elements are different
     :rtype: float
     """
-    y = eval(thought.content)
-    y_truth = sorted(eval(truth))
+    y = str_to_list(thought.content)
+    y_truth = sorted(str_to_list(truth))
     # filling the shorter array with -1
     if len(y) != len(y_truth):
         if len(y) < len(y_truth):
@@ -145,7 +156,7 @@ def tot(task_input: str, task_truth: str) -> Challenge:
     root = Thought(task_input, [], [], is_executable=True)
 
     generate = Generate(
-        [root], lm, 10, generate_prompt=Parser.from_json(prompts, "sort_prompt")
+        [root], lm, 5, generate_prompt=Parser.from_json(prompts, "sort_prompt")
     )
     scoring_layer = [
         Score([t], lm, scoring_function=num_errors, original_thought=root)
@@ -156,7 +167,7 @@ def tot(task_input: str, task_truth: str) -> Challenge:
         improve = Improve(
             keep_best.get_children_thoughts(),
             lm,
-            10,
+            5,
             original_thought=root,
             improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
         )
@@ -213,7 +224,7 @@ def got(task_input: str, task_truth: str) -> Challenge:
         improve = Improve(
             sort_split_list.get_children_thoughts(),
             lm,
-            10,
+            5,
             improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
             original_thought=split_list,
         )
@@ -268,32 +279,51 @@ def fot(task_input: str, task_truth: str) -> Challenge:
     :rtype: Challenge
     """
     # brainstorming
-    root = Thought("You want to sort a list in ascending order.", [], [], is_executable=True)
+    root = Thought("You want to generate 5 methods to sort a list in ascending order.", [], [], is_executable=True)
+    task_thought = Thought(task_input, [], [], is_executable=False)
+    link_operation = Link([root], lm, [task_thought])
     generate_method = Generate(
         [root],
         lm,
-        5,
+        1,
         generate_prompt=Parser.from_json(prompts, "fot_generate_prompt"),
     )
+    parse_methods = Split([generate_method.get_children_thoughts()[0]], lm, ["Method 1", "Method 2", "Method 3", "Method 4", "Method 5"])
     methods_thoughts = []
     # generate results by each method
-    for method_thought in generate_method.get_children_thoughts():
+    for method_thought in parse_methods.get_children_thoughts():
+        def concat_prompt(x:List[str])->List[str]:
+            return [x[0]+x[1]]
         # try methods
-        max_depth = 2
+        pits_gen_thought = Thought(f"Generate 3 pitfalls when doing the following process:{method_thought.content}", [], [], is_executable=True)
+        # link thought
+        link_operation = Link([method_thought], lm, [pits_gen_thought])
+        pits_thoughts = Aggregate([pits_gen_thought,method_thought], lm, 1, aggregate_function=concat_prompt).get_children_thoughts()
+        pits = Generate(
+            pits_thoughts,
+            lm,
+            1,
+            generate_prompt=Parser.from_json(prompts, "fot_check_prompt"),
+        )
+        parse_pits = Split([pits.get_children_thoughts()[0]], lm, ["Pitfall 1", "Pitfall 2", "Pitfall 3"])
         ego=Generate(
             [method_thought],
             lm,
             1,
-            generate_prompt=Parser(prompt=f"Given the data {task_input}, use the method {method_thought.content} to sort the data in ascending order.", name="use_method_prompt", plain=True),
+            generate_prompt=Parser(prompt=f"Given the data {task_thought.content}, use the method {method_thought.content} to sort the data in ascending order.", name="use_method_prompt", plain=True),
         )
         # improve the result
-        for i in range(max_depth):
+        for pitfall in parse_pits.get_children_thoughts():
+            improve_parser=Parser.from_json(prompts, "fot_improve_prompt")
+            improve_parser.cot=pitfall.content
+            # create link operation
+            link_operation = Link([pitfall], lm, [ego.get_children_thoughts()[0]])
             ego = Improve(
-                ego.get_children_thoughts(),
+                link_operation.get_children_thoughts(),
                 lm,
                 1,
-                improve_prompt=Parser.from_json(prompts, "fot_improve_prompt"),
-                original_thought=ego.get_children_thoughts()[0],
+                improve_prompt=improve_parser,
+                original_thought=task_thought,
             )
         # finalize result
         extract = Generate(
@@ -311,7 +341,7 @@ def fot(task_input: str, task_truth: str) -> Challenge:
                 [method],
                 lm,
                 scoring_function=num_errors,
-                original_thought=root
+                original_thought=task_thought
             ).get_children_thoughts()[0]
         )
     # keep the best result
@@ -326,7 +356,7 @@ def sorting_032():
     # this section is for testing the sorting task
     # data_ids = [item for item in range(0, 100)]
     data_ids = [0]
-    methods = [io, cot, tot, got, fot]
+    methods = [io,cot,tot,got,fot]
     # methods = [tot]
     orig_budget = budget
     data_path = os.path.join(os.path.dirname(__file__), "sorting_032.csv")
@@ -388,7 +418,7 @@ def sorting_032():
             path = os.path.join(
                 results_folder,
                 method.__name__,
-                f"{data[0]}.json",
+                f"{data[0]}_{method.__name__}_{timestamp}.json",
             )
             res = cur_challenge.as_G6_graph()
             with open(path, "w") as f:

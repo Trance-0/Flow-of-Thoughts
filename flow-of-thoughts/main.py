@@ -1,8 +1,7 @@
 from test.check_models import check_models
 from language_models.chatgpt import ChatGPT
 from language_models.llamachat_hf import LlamaHF
-from test.sorting_test.sorting_032 import sorting_032
-from test.sorting_test.sorting_064 import sorting_064
+from test.sorting_test.sorting_test import sorting_032
 import logging
 import os
 import time
@@ -29,4 +28,3 @@ if __name__ == "__main__":
     # check_models(ChatGPT(model_name="chatgpt4o"))
     # check_models(LlamaHF(model_name="llama3.2-1b-hf"))
     sorting_032()
-    # sorting_064()
