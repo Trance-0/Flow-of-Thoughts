@@ -356,8 +356,8 @@ def sorting_032():
     # this section is for testing the sorting task
     # data_ids = [item for item in range(0, 100)]
     data_ids = [0]
-    methods = [io,cot,tot,got,fot]
-    # methods = [tot]
+    # methods = [io,cot,tot,got,fot]
+    methods = [tot]
     orig_budget = budget
     data_path = os.path.join(os.path.dirname(__file__), "sorting_032.csv")
 

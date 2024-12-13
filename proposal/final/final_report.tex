@@ -10,6 +10,9 @@
 \usepackage{algorithm,algpseudocode}
 \usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
 \graphicspath{ {./images/} }
 
 
@@ -138,13 +141,33 @@ Other frameworks like Self-RAG \cite{asai2023selfraglearningretrievegenerate} ar
 \section{Framework design}
 % (highlight the contribution of your method: novelty/effectiveness/efficiency/simplicity)
 
-We want to create a Flow of Thoughts framework that can dynamically iterate the long passage with self-RAG based on a graph of thoughts. The idea goes as follows:
+We propose a novel Flow of Thoughts framework that can dynamically process and reason about long passages using self-RAG based generation combined with knowledge graph construction. This framework enables large language models to effectively manage and utilize information from extensive texts while maintaining coherent logic chains. The framework consists of four main components:
 
-First, the LLM will split the passage into several syntactically independent paragraphs by iterating the long texts. For example, the LLM will split a paper into sections like abstract, importance of projects, related work A, related work B, proposed solutions, etc that can fit into the context windows.
+\subsection{Preprocessing}
 
-Then we let LLM to determine if the passage is relevant to the problem that we are going to solve. For example, when we ask "What related technologies did the author use when doing the project?" The LLM should ignore the proposed framework, conclusion, and experimental results section and only focus on reading the "Related work" sections.
+First, the LLM performs intelligent text segmentation by splitting long passages into syntactically and semantically independent units that fit within the model's context window. 
 
-Finally, we let LLM compose answers based on the related paper segments with supporting references.
+For academic papers, this involves breaking down the text into logical sections such as abstract, introduction, related work, methodology, and results. Each section is further subdivided if needed to ensure it fits within context limits while preserving meaningful relationships. For reading comprehension tasks, the framework segments passages into coherent paragraphs that maintain narrative flow and topical consistency while staying within context window constraints.
+
+\subsection{Generating methods}
+
+The framework then employs a multi-strategy approach by having the LLM generate diverse solution methods tailored to the specific problem type. For example, when tackling sorting problems, the LLM generates multiple sorting algorithms like bubble sort, quick sort, and merge sort. 
+
+For each method, the LLM also performs an error analysis by identifying potential pitfalls and edge cases that could arise during execution for future refinement.
+
+\subsection{Self-verification and refining}
+
+On each branch of the solution, the framework feeds the problem statement, generated methods, and data corpus to the LLM. The model evaluates passage relevance and use the generated methods to solve the problem. The LLM will also check if the generated thought follows the generated methods and the problem statement using self-verification \cite{weng2023largelanguagemodelsbetter} and iteratively check the potential mistakes generated in the previous steps.
+
+If new errors are found, we may also add the new errors to the checking process.
+
+For instance, when answering questions about technical approaches used in a project, the LLM selectively focuses on relevant sections like "Related Work" while appropriately discounting less relevant sections like conclusions or experimental results. This targeted attention mechanism helps maintain solution quality while managing computational resources effectively.
+
+Ideally, in this step, the LLM should take control for the thought generation and refinement process and should be able to determine the steps required to solve the problem. However, in this research, we don't have sufficient time to implement such protocol, which can be done in the future. \ref{sec:future_work_self_generation}
+
+\subsection{Aggregation}
+
+The final phase aggregates the final thoughts from each independent branch to reach the final answer. Unlike Graph of Thoughts approaches that merge partial solutions, our framework uses a majority voting system to determine the final answer.
 
 \begin{algorithm}
     \caption{Flow of thoughts($P,Q$)}\label{alg:cap}
@@ -211,7 +234,7 @@ Finally, we let LLM compose answers based on the related paper segments with sup
 
 The Flow of Thoughts framework introduces a new approach to processing and extracting relevant information from a large data corpus that might be space for the necessary information to solve the target problem using Self-RAG and a Graph of Thoughts structure, significantly enhancing the efficiency, relevance, and quality of interactions with long-form content. 
 
-This model provides more explainability by recording how LLMs get the final solution from aggregating the partial information gained from Self-RAG. Through its intelligent segmentation, contextual relevance filtering, and ability to compose well-supported answers, this framework can potentially stand out in the landscape of text processing and information retrieval technologies.
+This model provides more explainability by recording how LLMs get the final solution from aggregating the partial information gained from Self-RAG. Through the segmentation, contextual relevance filtering, and ability to compose well-supported answers, this framework can potentially stand out in the landscape of text processing and information retrieval technologies.
 
 \subsection{Efficiency}
 
@@ -223,37 +246,151 @@ Compared with a normal Self-RAG Inference, the framework provides more flexibili
 
 \section{Experiment results}
 
-Now we have implemented basic functions for the Flow of Thoughts in revised Graph of Thoughts framework and let the LLM decide whether to use those messages or not when aggregating the final answer.
+To test the performance of the Flow of Thoughts framework, we have implemented basic functions for the Flow of Thoughts in revised Graph of Thoughts framework with implementation of basic input and output (IO), Chain-of-Thought (CoT), Tree-of-Thought (ToT), Graph-of-Thought (GoT), and Flow-of-Thought (FoT). All the prompts are given with 3-shot examples. For the flow of thoughts framework, the shots are given three simple tasks with potential approaches.
+
+We use black-box models GPT-4o-mini and Claude-3.5-Sonet with API calls for the experiment. For both models, we set temperature to 0.7 with all other parameters to default.
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.15\textwidth}
+        \centering
+        \includegraphics[width=0.5\textwidth]{images/io.png}
+        \subcaption{IO}
+    \end{subfigure}%
+    \begin{subfigure}{0.15\textwidth}
+        \centering
+        \includegraphics[width=0.5\textwidth]{images/chain_of_thoughts.png}
+        \subcaption{CoT}
+    \end{subfigure}%
+    \begin{subfigure}{0.7\textwidth}
+        \centering
+        \includegraphics[width=1.0\textwidth]{images/tree_of_thoughts.png}
+        \subcaption{Tree-of-Thought scheme}
+    \end{subfigure}
+    \begin{subfigure}{1.0\textwidth}
+        \centering
+        \includegraphics[width=1.0\textwidth]{images/graph_of_thoughts.png}
+        \subcaption{Graph-of-Thought scheme}
+    \end{subfigure}
+    \caption{Other framework structure defined in the experiment, only use for reference, detailed structure can be found in each run of the experiment}
+    \label{fig:sorting_results}
+\end{figure}
 
 \subsection{Sorting}
 
-The sorting task is a basic task that can be solved by Graph of Thoughts. we give the LLM a list of random numbers and let it sort them. 
+The sorting task is a basic task that can be solved by Graph of Thoughts. We give the LLM a list of 32 random numbers and let each scheme to sort the numbers. The number of trials is 100. The number of errors is calculated by the number of trials that the LLM cannot sort the numbers correctly. Dataset can be found in appendix \ref{sec:appendix_sorting}.
+
+All the prompts are given with 3-shot examples. For the flow of thoughts framework, the shots are given three simple tasks with potential approaches.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Model} & \textbf{GPT-4o-mini} & \textbf{Claude-3.5-Sonet} \\
+        \hline \hline
+        \textbf{IO}    & 2.14                 & 2.03                     \\
+        \textbf{CoT}   & 1.88                 & 1.86                     \\
+        \textbf{ToT}   & 1.20                 & 1.32                     \\
+        \textbf{GoT}   & 1.10                 & 1.32                     \\
+        \textbf{FoT}   & 1.13                 & \textbf{1.09}                     \\
+        \hline
+    \end{tabular}
+    \vspace{1em}
+    \caption{Average number of incorrect responses in sorting 32 intergers}
+    \label{tab:sorting_results}
+\end{table}
 
 \subsection{Set Intersection}
 
-The set intersection task is a basic task that also can be solved by Graph of Thoughts. We have implemented the basic functions for the Flow of Thoughts with the same functionality as Graph of Thoughts and compare the performance with Graph of Thoughts.
+The set intersection task is a basic task that also can be solved by Graph of Thoughts. The task is defined as follows: Given two set of 32 numbers, find the intersection of the two sets.
 
-We use the same dataset as the Graph of Thoughts and compare the performance with Graph of Thoughts. However, due to time constraints, we only have the set intersection task results for length 64 and 100 trials using ChatGPT-4o and Claude-3.5-sonnet models.
+We use the same dataset as the Graph of Thoughts and compare the performance with Graph of Thoughts. Dataset can be found in appendix \ref{sec:appendix_set_intersection}.
+
+The experiment is conducted with 100 trials. The number of errors is calculated by the the number of misclassified elements in the intersection.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Model} & \textbf{GPT-4o-mini} & \textbf{Claude-3.5-Sonet} \\
+        \hline \hline
+        \textbf{IO}    & 3.02                 & 2.88                     \\
+        \textbf{CoT}   & 2.46                 & 1.89                     \\
+        \textbf{ToT}   & 1.93                 & 1.97                     \\
+        \textbf{GoT}   & 1.24                 & 1.56                     \\
+        \textbf{FoT}   & 1.13                 & 1.20                     \\
+        \hline
+    \end{tabular}
+    \vspace{1em}
+    \caption{Average number of incorrect responses in set intersection}
+    \label{tab:set_intersection_results}
+\end{table}
 
 \subsection{Reading Comprehension}
 
 For the reading comprehension task, we use the RACE dataset \cite{lai2017large} to test the performance of the Flow of Thoughts framework. The dataset contains 28,000+ passages and 100,000+ questions, which is a large dataset for reading comprehension tasks. We use the top 100 passages with longest length to test the performance of the Flow of Thoughts framework. (min passage length 3850, detail of the passages can be found in the appendix)
 
+The experiment is conducted with 100 passages. Each passage weights 1 point and we calculate the total score of the model by summing up the scores of each passage. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Model} & \textbf{GPT-4o-mini} & \textbf{Claude-3.5-Sonet} \\
+        \hline \hline
+        \textbf{IO}    & 68.5                 & 65.25                    \\
+        \textbf{CoT}   & 72.33                & 69.5                     \\
+        \textbf{ToT}   & 76.25                & 75.33                    \\
+        \textbf{GoT}   & 78.5                 & 83.25                    \\
+        \textbf{FoT}   & 84.33                & 85.5                     \\
+        \hline
+    \end{tabular}
+    \vspace{1em}
+    \caption{Score of the reading comprehension task on RACE-min dataset}
+    \label{tab:reading_comprehension_results}
+\end{table}
 
 \section{Analysis}
+
+\subsection{Method generation}
+
+By default, we let the LLM generate 3 methods for each task all by themselves. However, the model may not be able to generate 3 practical methods that LLM can execute. 
+
+For sorting task, in some rare cases, the LLM will generate methods using python code. However, in our setting, the LLM do not have the capability to execute python code and the methods will be processed as a normal tree of thoughts branch and don't contribute to the diversity of the solutions. This case is also observed in the set intersection task, where the LLM will also use \texttt{set.intersection()} to solve the problem.
+
+For reading comprehension task, instead of generating 3 methods, the LLM will sometimes generate 1 or 2 methods only or even generate methods that are not related to the task. For instance, the LLM will produce Chunking and Visualizing as methods for the reading comprehension task, where you break down large pieces of information into smaller, more manageable sections (chunks). However, the LLM do not have the capability to generate image or diagram for the passages that can be feed to itself.
+
+\subsection{Self-checking process}
+
+The self-checking process is a crucial part of the Flow of Thoughts framework. It allows the LLM to check the correctness of the methods and refine the solution. However, the self-checking process is not perfect and the LLM may not be able to check the correctness of the methods.
+
+For sorting task, we observe that the LLM cannot count the number of elements in the list correctly when the number of elements is large. The LLM will failed to count the number of missing elements in the list and snowball the error. For example, the LLM will generate 31 as the number of missing elements in the list when the correct number elements is 32. The LLM sometimes failed to check the length of the output list and use the illusions to fill the gaps of the list.
 
 \section{Limitations and potential future work}
 
 \subsection{Approach generation}
-The generated methods may still not be approachable for LLM to execute (Shor’s algorithm to factorize large primes)
+The generated methods may still not be approachable for LLM to execute (Shor's algorithm to factorize large primes)
 
 Among all the generated methods, most of them are approachable for LLM to execute and will not affect the major voting procedure of the final answer. However, this statement may not hold for more complex problems. The model may need access to external knowledge or API to execute some of the methods. One further improvement is to let the LLM access to external knowledge or API to execute some of the methods as described in ToolLLM \cite{qin2023toolllmfacilitatinglargelanguage}.
 
-\subsection{High expense for graph generation}
+\subsection{High expense for thoughts generation}
 
 During the experiment, we found that the generation of the graph is expensive. The generation of the graph is $O(nm)$ where $n$ is the number of approaches and $m$ is the number of checking steps for each method. (Maybe we can share and check some common mistakes to save costs for improvements) We tried to reuse some of the common mistakes to save costs for improvements. However, the performance is still non-linear especially when the number of mistakes is large.
 
+\subsection{Flexibility for Divide and Conquer approach}
 
+The final Flow of Thoughts framework should allows the LLM to generate additional methods to divide the problem into sub-problems. However, the current framework is not flexible for this feature due to time constraints for this project. During the sorting process in Flow of Thoughts scheme, the LLM cannot divide the problem into sub-problems as normal Graph of Thoughts do, which might potentially hinder the performance of the framework for longer array size.
+
+In future work, it's possible to design a protocol to let the LLM decide whether to divide the problem into sub-problems or generate additional filtering functions to filter out the invalid or incorrect solutions.
+
+Our current Flow of Thoughts framework also don't fully support the self-retrieval process. The LLM will not be able to retrieve the information from the previous steps if those information is not stored in previous steps. Additional protocol is needed to enable the self-retrieval process as LLM needs.
+
+\subsection{Potential improvements that can be made}
+\label{sec:future_work_self_generation}
+
+Due to time constraints, we only implemented the basic version of the Flow of Thoughts framework. There are many potential improvements that might be done to improve the performance of the framework.
+
+Instead of finite steps generations, we can let the LLM continue to generate thoughts until we find a solution that LLM agree with with high confidence by adding certainty attribute \cite{lin2022teachingmodelsexpressuncertainty} to each thought and use priority queue to check the most promising thoughts first.
 
 \medskip
 {
@@ -267,20 +404,24 @@ During the experiment, we found that the generation of the graph is expensive. T
 \subsection{Prompts used in solving the problem}
 
 \subsubsection{Sorting}
+\label{sec:appendix_sorting}
 
-For approach generation, we use the following prompt:
+Dataset for sorting can be found in \url{https://github.com/Trance-0/Flow-of-Thoughts/blob/main/flow-of-thoughts/test/sorting_test/sorting_032.csv}
 
-Example output:
+Prompt for sorting can be found in \url{https://github.com/Trance-0/Flow-of-Thoughts/blob/main/flow-of-thoughts/test/sorting_test/sort_prompt.json}
 
 \subsubsection{Set Intersection}
+\label{sec:appendix_set_intersection}
+
+Dataset for set intersection can be found in \url{https://github.com/Trance-0/Flow-of-Thoughts/blob/main/flow-of-thoughts/test/set_intersections/set_intersection_032.csv}
+
+Prompt for set intersection can be found in \url{https://github.com/Trance-0/Flow-of-Thoughts/blob/main/flow-of-thoughts/test/set_intersections/set_intersection_prompt.json}
 
 \subsubsection{Reading Comprehension}
-
+\label{sec:appendix_reading_comprehension}
 Passages used for reading comprehension test can be found in github repository \url{https://github.com/Trance-0/Flow-of-Thoughts/tree/main/flow-of-thoughts/test/reading_comprehension/RACE_min}
 
-For approach generation, we use the following prompt:
-
-Example output:
+Prompt for approach generation can be found in \url{https://github.com/Trance-0/Flow-of-Thoughts/blob/main/flow-of-thoughts/test/reading_comprehension/reading_comprehension_prompt.json}
 
 
 \end{document}

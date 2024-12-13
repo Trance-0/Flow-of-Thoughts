@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex final_report"] 1734110831.00912 "final_report.aux" "final_report.bbl" "final_report" 1734110942.80908 0
-  "./references.bib" 1734110593.63259 4736 75be71bf2d9d52dd560fc4e7af95854c ""
+["bibtex final_report"] 1734121443.12947 "final_report.aux" "final_report.bbl" "final_report" 1734121444.08464 0
+  "./references.bib" 1734111715.08776 4736 75be71bf2d9d52dd560fc4e7af95854c ""
   "/usr/local/texlive/2024/texmf-dist/bibtex/bst/base/plain.bst" 1292289607 20613 bd3fbfa9f64872b81ac57a0dd2ed855f ""
-  "final_report.aux" 1734110942.58696 5169 f903c4f71b4cc9d94c85cb751b14f44f "pdflatex"
+  "final_report.aux" 1734121443.87651 8153 662e8c55cb189a5d6b4e960b705e274c "pdflatex"
   (generated)
   "final_report.bbl"
   "final_report.blg"
   (rewritten before read)
-["pdflatex"] 1734110942.08547 "/home/soragoto/Documents/GitHub/Flow-of-Thoughts/proposal/final/final_report.tex" "final_report.pdf" "final_report" 1734110942.80922 0
-  "/home/soragoto/Documents/GitHub/Flow-of-Thoughts/proposal/final/final_report.tex" 1734110941.87496 18471 2e628182e78e92291939b1785840520b ""
+["pdflatex"] 1734121443.22784 "/home/soragoto/Documents/GitHub/Flow-of-Thoughts/proposal/final/final_report.tex" "final_report.pdf" "final_report" 1734121444.0848 0
+  "/home/soragoto/Documents/GitHub/Flow-of-Thoughts/proposal/final/final_report.tex" 1734121441.99449 29201 a01d80278d895787e8ad7f882af85d32 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -77,6 +77,9 @@
   "/usr/local/texlive/2024/texmf-dist/tex/latex/base/inputenc.sty" 1717359999 5048 7ebf0f2edf1ef6783e8fe2201a95d0e8 ""
   "/usr/local/texlive/2024/texmf-dist/tex/latex/base/size10.clo" 1730496337 8448 bd43e47d84d3704b7eabd59a92e43bf1 ""
   "/usr/local/texlive/2024/texmf-dist/tex/latex/booktabs/booktabs.sty" 1579038678 6078 f1cb470c9199e7110a27851508ed7a5c ""
+  "/usr/local/texlive/2024/texmf-dist/tex/latex/caption/caption.sty" 1696191071 56128 c2ccf1a29d78c33bc553880402e4fb9a ""
+  "/usr/local/texlive/2024/texmf-dist/tex/latex/caption/caption3.sty" 1696191071 72619 ee90b6612147680fd73c3b1406a74245 ""
+  "/usr/local/texlive/2024/texmf-dist/tex/latex/caption/subcaption.sty" 1690576852 12494 0c0cdb824278a4d51cefeb2e79901315 ""
   "/usr/local/texlive/2024/texmf-dist/tex/latex/environ/environ.sty" 1399239813 4378 f429f0da968c278653359293040a8f52 ""
   "/usr/local/texlive/2024/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty" 1579991033 13886 d1306dcf79a944f6988e688c1785f9ce ""
   "/usr/local/texlive/2024/texmf-dist/tex/latex/etoolbox/etoolbox.sty" 1601931149 46845 3b58f70c6e861a13d927bff09d35ecbc ""
@@ -121,11 +124,15 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1730878493 5475505 9858817de6e728d163c121232b884c29 ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1730878541 3343017 7385c61eb105a047ee2cdd8d9dca1b6a ""
   "/usr/local/texlive/2024/texmf.cnf" 1730878490.30653 455 5b996dcaa0eb4ef14a83b026bc0a008c ""
-  "final_report.aux" 1734110942.58696 5169 f903c4f71b4cc9d94c85cb751b14f44f "pdflatex"
-  "final_report.bbl" 1734110831.09816 2615 8acddc3e00384f927ec83fbeb3bf847f "bibtex final_report"
-  "final_report.out" 1734110942.58796 3726 9e9ec30ea12b087eff84b513a180a3fc "pdflatex"
-  "final_report.tex" 1734110941.87496 18471 2e628182e78e92291939b1785840520b ""
+  "final_report.aux" 1734121443.87651 8153 662e8c55cb189a5d6b4e960b705e274c "pdflatex"
+  "final_report.bbl" 1734121443.2245 2615 8acddc3e00384f927ec83fbeb3bf847f "bibtex final_report"
+  "final_report.out" 1734121443.87751 5210 9740ed7e997ca182547e652dcfbf3ca8 "pdflatex"
+  "final_report.tex" 1734121441.99449 29201 a01d80278d895787e8ad7f882af85d32 ""
+  "images/chain_of_thoughts.png" 1734112171.93998 26795 27256849f0c6ce7377bb05b5a713f993 ""
   "images/flow_of_thoughts.png" 1734109855.39776 92821 755707641b608a57840ba90c2e143775 ""
+  "images/graph_of_thoughts.png" 1734111786.84427 93971 16524d0cd825b67b9f231f4bbc111ce1 ""
+  "images/io.png" 1734113346.96102 18034 8886ef93ba94d98d09e06a4814b2972b ""
+  "images/tree_of_thoughts.png" 1734112085.39037 120374 19823d2dfdd08a056be67030c5cbf9a9 ""
   "neurips_2024.sty" 1734109982.83358 11706 603f1eaa917f6095b5c565458bee0c77 ""
   (generated)
   "final_report.aux"

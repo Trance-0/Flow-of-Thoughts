@@ -32,9 +32,9 @@ if __name__ == "__main__":
     # test_generate_operation(ChatGPT(model_name="chatgpt4o"))
 
     # setup logger for all tasks
-    # setup_logger("sorting_032")
-    # sorting_032()
-    setup_logger("set_intersection_064")
-    set_intersection_064()
+    setup_logger("sorting_032")
+    sorting_032()
+    # setup_logger("set_intersection_064")
+    # set_intersection_064()
     # setup_logger("reading_comprehension_064")
     # reading_comprehension()
