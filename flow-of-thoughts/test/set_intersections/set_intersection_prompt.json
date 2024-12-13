@@ -1,0 +1,55 @@
+{
+    "set_intersection_prompt": {
+        "instruction": "Find the intersection of two sets of numbers. Output only the set of numbers that are present in both sets, no additional text.",
+        "examples": [
+            {
+                "input": "[13, 16, 30, 6, 21, 7, 31, 15, 11, 1, 24, 10, 9, 3, 20, 8]\n[25, 24, 10, 4, 27, 0, 14, 12, 8, 2, 29, 20, 17, 19, 26, 23]",
+                "output": "[24, 10, 20, 8]"
+            },
+            {
+                "input": "[26, 40, 42, 57, 15, 31, 5, 32, 11, 4, 24, 28, 51, 54, 12, 22, 33, 35, 7, 13, 2, 59, 8, 23, 43, 16, 29, 55, 25, 63, 21, 18]\n[16, 60, 36, 48, 0, 15, 5, 19, 46, 24, 1, 6, 61, 10, 38, 53, 58, 9, 44, 14, 35, 63, 52, 20, 27, 17, 39, 47, 34, 56, 40, 59]",
+                "output": "[40, 15, 5, 24, 35, 59, 16, 63]"
+            }
+        ]
+    },
+    "tot_improve_prompt": {
+        "instruction": "Check if the intersection of the two sets is correct. Make sure the output contains only numbers that appear in both input sets.",
+        "examples": [
+            {
+                "input": "Set 1: [1, 2, 3, 4, 5]\nSet 2: [4, 5, 6, 7, 8]\nIntersection: [4, 5, 6]",
+                "output": "The intersection is incorrect. 6 appears in the intersection but is not present in Set 1. The correct intersection should be [4, 5]."
+            },
+            {
+                "input": "Set 1: [10, 20, 30, 40, 50]\nSet 2: [30, 40, 50, 60, 70]\nIntersection: [30, 40]",
+                "output": "The intersection is incorrect. 50 appears in both sets but is missing from the intersection. The correct intersection should be [30, 40, 50]."
+            }
+        ]
+    },
+    "fot_generate_prompt": {
+        "instruction": "Generate a reliable method to find the intersection of two sets. In json format, no additional text besides the json.",
+        "examples": [
+            {
+                "input": "You want to generate 2 methods to find the intersection of two sets.",
+                "output": "{\"Method 1\": \"Convert both lists to sets and use the built-in intersection operation to find common elements.\", \"Method 2\": \"For each element in the first set, check if it exists in the second set. If it does, add it to the intersection.\"}"
+            }
+        ]
+    },
+    "fot_check_prompt": {
+        "instruction": "Generate potential pitfalls when finding set intersections. In json format, no additional text besides the json.",
+        "examples": [
+            {
+                "input": "Generate 3 pitfalls when finding the intersection of two sets.",
+                "output": "{\"Pitfall 1\": \"Including elements that only appear in one set.\", \"Pitfall 2\": \"Missing elements that appear in both sets.\", \"Pitfall 3\": \"Including duplicate elements in the intersection.\"}"
+            }
+        ]
+    },
+    "fot_improve_prompt": {
+        "instruction": "Check the following process below, did the response follow the process correctly? Is the data consistent with the output? If not, improve the response to follow the process correctly.",
+        "examples": [
+            {
+                "input": "Check if any numbers from Set 1 are exactly present in Set 2. This can be done by comparing each element of the first set with every element of the second set to identify the common numbers.Explanation: The task is to identify the common elements between both sets by looking for exact matches. In Set 1, check each number to see if it is also found in Set 2. Once the common numbers are identified, you have the intersectionSet 1: [10, 20, 30, 40, 50]\nSet 2: [30, 40, 50, 60, 70]\nIntersection: [30, 40]",
+                "output": "The intersection is incorrect. 50 appears in both sets but is missing from the intersection. The correct intersection should be [30, 40, 50]."
+            }
+        ]
+    }
+}

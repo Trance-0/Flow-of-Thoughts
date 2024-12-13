@@ -1,0 +1,42 @@
+\begin{thebibliography}{1}
+
+\bibitem{asai2023selfraglearningretrievegenerate}
+Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi.
+\newblock Self-rag: Learning to retrieve, generate, and critique through self-reflection, 2023.
+
+\bibitem{Besta_2024}
+Maciej Besta, Nils Blach, Ales Kubicek, Robert Gerstenberger, Michal Podstawski, Lukas Gianinazzi, Joanna Gajda, Tomasz Lehmann, Hubert Niewiadomski, Piotr Nyczyk, and Torsten Hoefler.
+\newblock Graph of thoughts: Solving elaborate problems with large language models.
+\newblock {\em Proceedings of the AAAI Conference on Artificial Intelligence}, 38(16):17682–17690, March 2024.
+
+\bibitem{delétang2024languagemodelingcompression}
+Grégoire Delétang, Anian Ruoss, Paul-Ambroise Duquenne, Elliot Catt, Tim Genewein, Christopher Mattern, Jordi Grau-Moya, Li~Kevin Wenliang, Matthew Aitchison, Laurent Orseau, Marcus Hutter, and Joel Veness.
+\newblock Language modeling is compression, 2024.
+
+\bibitem{lai2017large}
+Guokun Lai, Qizhe Xie, Hanxiao Liu, Yiming Yang, and Eduard Hovy.
+\newblock Race: Large-scale reading comprehension dataset from examinations.
+\newblock {\em arXiv preprint arXiv:1704.04683}, 2017.
+
+\bibitem{lin2022teachingmodelsexpressuncertainty}
+Stephanie Lin, Jacob Hilton, and Owain Evans.
+\newblock Teaching models to express their uncertainty in words, 2022.
+
+\bibitem{liu2023lostmiddlelanguagemodels}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang.
+\newblock Lost in the middle: How language models use long contexts, 2023.
+
+\bibitem{Wei2022ChainOT}
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Ed~Huai hsin Chi, F.~Xia, Quoc Le, and Denny Zhou.
+\newblock Chain of thought prompting elicits reasoning in large language models.
+\newblock {\em ArXiv}, abs/2201.11903, 2022.
+
+\bibitem{weng2023largelanguagemodelsbetter}
+Yixuan Weng, Minjun Zhu, Fei Xia, Bin Li, Shizhu He, Shengping Liu, Bin Sun, Kang Liu, and Jun Zhao.
+\newblock Large language models are better reasoners with self-verification, 2023.
+
+\bibitem{wu2022memorizingtransformers}
+Yuhuai Wu, Markus~N. Rabe, DeLesley Hutchins, and Christian Szegedy.
+\newblock Memorizing transformers, 2022.
+
+\end{thebibliography}

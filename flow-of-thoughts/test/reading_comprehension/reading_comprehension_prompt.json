@@ -1,0 +1,51 @@
+{
+    "reading_comprehension_prompt": {
+        "instruction": "Read the given text passage carefully and answer the question that follows. Provide a clear and concise answer based only on the information given in the passage.",
+        "examples": [
+            {
+                "input": "The red brick house at the end of Maple Street has been abandoned for over twenty years. Local residents say that the last family to live there moved out suddenly one night in 1998, leaving most of their belongings behind. Since then, the property has fallen into disrepair, with overgrown weeds in the yard and broken windows.\nQuestion: When did the last family move out of the house?",
+                "output": "The last family moved out in 1998."
+            },
+            {
+                "input": "Solar panels work by converting sunlight into electricity through a process called the photovoltaic effect. When photons from the sun hit the panels, they knock electrons loose from atoms in the semiconductor material. These free electrons flow through the material to create an electric current, which can then be harnessed for power.\nQuestion: What is the process that allows solar panels to convert sunlight to electricity?",
+                "output": "Solar panels convert sunlight to electricity through the photovoltaic effect."
+            }
+        ]
+    },
+    "tot_improve_prompt": {
+        "instruction": "Review the following answer to the reading comprehension question. Check if the answer is accurate based on the passage and contains only information from the text. If not, provide a corrected answer.",
+        "examples": [
+            {
+                "input": "Passage: The Great Barrier Reef, located off the coast of Australia, is the world's largest coral reef system. It stretches over 2,300 kilometers and is home to thousands of species of marine life. In recent years, rising ocean temperatures have caused widespread coral bleaching.\nQuestion: Where is the Great Barrier Reef located?\nAnswer: The Great Barrier Reef is the largest reef system in the Pacific Ocean.",
+                "output": "The answer is partially incorrect. While the Great Barrier Reef is indeed the largest coral reef system, the passage only states that it is located off the coast of Australia. The correct answer should be: The Great Barrier Reef is located off the coast of Australia."
+            }
+        ]
+    },
+    "fot_generate_prompt": {
+        "instruction": "Generate a systematic approach to answer reading comprehension questions. In json format, no additional text besides the json.",
+        "examples": [
+            {
+                "input": "Generate 3 steps for answering reading comprehension questions.",
+                "output": "{\"Step 1\": \"Carefully read the entire passage to understand the main ideas and context.\", \"Step 2\": \"Identify key information in the passage that relates to the specific question being asked.\", \"Step 3\": \"Formulate an answer using only information explicitly stated in the passage.\"}"
+            }
+        ]
+    },
+    "fot_check_prompt": {
+        "instruction": "Generate potential mistakes to avoid when answering reading comprehension questions. In json format, no additional text besides the json.",
+        "examples": [
+            {
+                "input": "Generate 3 common mistakes in reading comprehension answers.",
+                "output": "{\"Mistake 1\": \"Including information not present in the passage.\", \"Mistake 2\": \"Misinterpreting or making assumptions beyond what the text states.\", \"Mistake 3\": \"Providing incomplete answers that miss key details from the passage.\"}"
+            }
+        ]
+    },
+    "fot_improve_prompt": {
+        "instruction": "Review the following answer and check if it directly addresses the question and uses only information from the passage. If not, suggest improvements to make the answer more accurate and focused.",
+        "examples": [
+            {
+                "input": "Passage: Coffee was first discovered in Ethiopia in the 11th century. According to legend, a goat herder noticed his goats became energetic after eating certain berries. These berries turned out to be coffee cherries, containing the coffee beans we use today.\nQuestion: When and where was coffee discovered?\nAnswer: Coffee was discovered by a goat herder when his goats ate berries.",
+                "output": "The answer is incomplete. While it mentions how coffee was discovered, it omits the time and location. The complete answer should be: Coffee was discovered in Ethiopia in the 11th century."
+            }
+        ]
+    }
+}

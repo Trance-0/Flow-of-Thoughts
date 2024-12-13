@@ -2,6 +2,8 @@ from test.check_models import check_models
 from language_models.chatgpt import ChatGPT
 from language_models.llamachat_hf import LlamaHF
 from test.sorting_test.sorting_test import sorting_032
+from test.set_intersections.set_intersection_test import set_intersection_064
+# from test.reading_comprehension.reading_comprehension import reading_comprehension
 import logging
 import os
 import time
@@ -23,8 +25,13 @@ def setup_logger(task_name: str):
 
 
 if __name__ == "__main__":
-    # setup logger for all tasks
-    setup_logger("sorting_032")
     # check_models(ChatGPT(model_name="chatgpt4o"))
     # check_models(LlamaHF(model_name="llama3.2-1b-hf"))
-    sorting_032()
+
+    # setup logger for all tasks
+    # setup_logger("sorting_032")
+    # sorting_032()
+    setup_logger("set_intersection_064")
+    set_intersection_064()
+    # setup_logger("reading_comprehension_064")
+    # reading_comprehension()
