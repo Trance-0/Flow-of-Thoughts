@@ -13,6 +13,10 @@ Maciej Besta, Nils Blach, Ales Kubicek, Robert Gerstenberger, Michal Podstawski,
 Grégoire Delétang, Anian Ruoss, Paul-Ambroise Duquenne, Elliot Catt, Tim Genewein, Christopher Mattern, Jordi Grau-Moya, Li~Kevin Wenliang, Matthew Aitchison, Laurent Orseau, Marcus Hutter, and Joel Veness.
 \newblock Language modeling is compression, 2024.
 
+\bibitem{jiang2020improvingmachinereadingcomprehension}
+Yufan Jiang, Shuangzhi Wu, Jing Gong, Yahui Cheng, Peng Meng, Weiliang Lin, Zhibo Chen, and Mu~li.
+\newblock Improving machine reading comprehension with single-choice decision and transfer learning, 2020.
+
 \bibitem{lai2017large}
 Guokun Lai, Qizhe Xie, Hanxiao Liu, Yiming Yang, and Eduard Hovy.
 \newblock Race: Large-scale reading comprehension dataset from examinations.
@@ -42,5 +46,9 @@ Yixuan Weng, Minjun Zhu, Fei Xia, Bin Li, Shizhu He, Shengping Liu, Bin Sun, Kan
 \bibitem{wu2022memorizingtransformers}
 Yuhuai Wu, Markus~N. Rabe, DeLesley Hutchins, and Christian Szegedy.
 \newblock Memorizing transformers, 2022.
+
+\bibitem{zhang2023languagemodelhallucinationssnowball}
+Muru Zhang, Ofir Press, William Merrill, Alisa Liu, and Noah~A. Smith.
+\newblock How language model hallucinations can snowball, 2023.
 
 \end{thebibliography}
