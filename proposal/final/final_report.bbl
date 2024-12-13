@@ -1,4 +1,4 @@
-\begin{thebibliography}{1}
+\begin{thebibliography}{10}
 
 \bibitem{asai2023selfraglearningretrievegenerate}
 Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi.
@@ -25,6 +25,10 @@ Stephanie Lin, Jacob Hilton, and Owain Evans.
 \bibitem{liu2023lostmiddlelanguagemodels}
 Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang.
 \newblock Lost in the middle: How language models use long contexts, 2023.
+
+\bibitem{qin2023toolllmfacilitatinglargelanguage}
+Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, Yankai Lin, Xin Cong, Xiangru Tang, Bill Qian, Sihan Zhao, Lauren Hong, Runchu Tian, Ruobing Xie, Jie Zhou, Mark Gerstein, Dahai Li, Zhiyuan Liu, and Maosong Sun.
+\newblock Toolllm: Facilitating large language models to master 16000+ real-world apis, 2023.
 
 \bibitem{Wei2022ChainOT}
 Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Ed~Huai hsin Chi, F.~Xia, Quoc Le, and Denny Zhou.

@@ -9,9 +9,64 @@
             {
                 "input": "[26, 40, 42, 57, 15, 31, 5, 32, 11, 4, 24, 28, 51, 54, 12, 22, 33, 35, 7, 13, 2, 59, 8, 23, 43, 16, 29, 55, 25, 63, 21, 18]\n[16, 60, 36, 48, 0, 15, 5, 19, 46, 24, 1, 6, 61, 10, 38, 53, 58, 9, 44, 14, 35, 63, 52, 20, 27, 17, 39, 47, 34, 56, 40, 59]",
                 "output": "[40, 15, 5, 24, 35, 59, 16, 63]"
+            },
+            {
+                "input": "[115, 61, 35, 103, 90, 117, 86, 44, 63, 45, 40, 30, 74, 33, 31, 1, 118, 48, 38, 0, 119, 51, 64, 78, 15, 121, 89, 101, 79, 69, 120, 29, 58, 50, 116, 11, 60, 12, 39, 95, 23, 2, 109, 84, 7, 43, 99, 98, 52, 70, 75, 102, 57, 19, 94, 36, 114, 88, 71, 56, 83, 6, 96, 107]\n[13, 35, 20, 96, 34, 18, 47, 127, 126, 9, 21, 16, 77, 22, 111, 122, 85, 73, 42, 105, 123, 15, 33, 59, 67, 57, 104, 8, 30, 89, 76, 12, 65, 84, 32, 40, 7, 100, 108, 50, 14, 28, 24, 53, 90, 17, 91, 81, 124, 63, 5, 46, 125, 93, 49, 66, 117, 37, 115, 113, 2, 106, 41, 72]",
+                "output": "[115, 35, 90, 117, 63, 40, 30, 33, 15, 89, 50, 12, 2, 84, 7, 57, 96]"
             }
         ]
     },
+    "set_intersection_prompt_cot": {
+        "instruction": "Find the intersection of two sets of numbers. You can generate any intermediate solutions, but the final output should be the set of numbers that are present in both sets, prefixed with \"Output: \".",
+        "approach": [
+            "Split the second input set of numbers into two to four subsets, each containing an equal number of elements from the original set (make sure they don't overlap).",
+            "For each subset find the set of numbers that are present in the subset and the first input set.",
+            "Merge the resulting sets into a single output set."
+        ],
+        "examples": [
+            {
+                "input": "[13, 16, 30, 6, 21, 7, 31, 15, 11, 1, 24, 10, 9, 3, 20, 8]\n[25, 24, 10, 4, 27, 0, 14, 12, 8, 2, 29, 20, 17, 19, 26, 23]",
+                "subsets": [
+                    "[25, 24, 10, 4, 27, 0, 14, 12]",
+                    "[8, 2, 29, 20, 17, 19, 26, 23]"
+                ],
+                "intersected_subsets": [
+                    "[24, 10]",
+                    "[8, 20]"
+                ],
+                "output": "Output: [24, 10, 8, 20]"
+            },
+            {
+                "input": "[26, 40, 42, 57, 15, 31, 5, 32, 11, 4, 24, 28, 51, 54, 12, 22, 33, 35, 7, 13, 2, 59, 8, 23, 43, 16, 29, 55, 25, 63, 21, 18]\n[16, 60, 36, 48, 0, 15, 5, 19, 46, 24, 1, 6, 61, 10, 38, 53, 58, 9, 44, 14, 35, 63, 52, 20, 27, 17, 39, 47, 34, 56, 40, 59]",
+                "subsets": [
+                    "[16, 60, 36, 48, 0, 15, 5, 19, 46, 24, 1, 6, 61, 10, 38, 53]",
+                    "[58, 9, 44, 14, 35, 63, 52, 20, 27, 17, 39, 47, 34, 56, 40, 59]"
+                ],
+                "intersected_subsets": [
+                    "[16, 15, 5, 24]",
+                    "[35, 63, 40, 59]"
+                ],
+                "output": "Output: [16, 15, 5, 24, 35, 63, 40, 59]"
+            },
+            {
+                "input": "[115, 61, 35, 103, 90, 117, 86, 44, 63, 45, 40, 30, 74, 33, 31, 1, 118, 48, 38, 0, 119, 51, 64, 78, 15, 121, 89, 101, 79, 69, 120, 29, 58, 50, 116, 11, 60, 12, 39, 95, 23, 2, 109, 84, 7, 43, 99, 98, 52, 70, 75, 102, 57, 19, 94, 36, 114, 88, 71, 56, 83, 6, 96, 107]\n[13, 35, 20, 96, 34, 18, 47, 127, 126, 9, 21, 16, 77, 22, 111, 122, 85, 73, 42, 105, 123, 15, 33, 59, 67, 57, 104, 8, 30, 89, 76, 12, 65, 84, 32, 40, 7, 100, 108, 50, 14, 28, 24, 53, 90, 17, 91, 81, 124, 63, 5, 46, 125, 93, 49, 66, 117, 37, 115, 113, 2, 106, 41, 72]",
+                "subsets": [
+                    "[13, 35, 20, 96, 34, 18, 47, 127, 126, 9, 21, 16, 77, 22, 111, 122]",
+                    "[85, 73, 42, 105, 123, 15, 33, 59, 67, 57, 104, 8, 30, 89, 76, 12]",
+                    "[65, 84, 32, 40, 7, 100, 108, 50, 14, 28, 24, 53, 90, 17, 91, 81]",
+                    "[124, 63, 5, 46, 125, 93, 49, 66, 117, 37, 115, 113, 2, 106, 41, 72]"
+                ],
+                "intersected_subsets": [
+                    "[35, 96]",
+                    "[15, 33, 57, 30, 89, 12]", 
+                    "[84, 40, 7, 50, 90]",
+                    "[63, 117, 115, 2]"
+                ],
+                "output": "Output: [35, 96, 15, 33, 57, 30, 89, 12, 84, 40, 7, 50, 90, 63, 117, 115, 2]"
+            }
+        ]
+    },
+
     "tot_improve_prompt": {
         "instruction": "Check if the intersection of the two sets is correct. Make sure the output contains only numbers that appear in both input sets.",
         "examples": [
@@ -49,6 +104,19 @@
             {
                 "input": "Check if any numbers from Set 1 are exactly present in Set 2. This can be done by comparing each element of the first set with every element of the second set to identify the common numbers.Explanation: The task is to identify the common elements between both sets by looking for exact matches. In Set 1, check each number to see if it is also found in Set 2. Once the common numbers are identified, you have the intersectionSet 1: [10, 20, 30, 40, 50]\nSet 2: [30, 40, 50, 60, 70]\nIntersection: [30, 40]",
                 "output": "The intersection is incorrect. 50 appears in both sets but is missing from the intersection. The correct intersection should be [30, 40, 50]."
+            }
+        ]
+    },
+    "extract_answer_prompt": {
+        "instruction": "Extract only the final intersection result from the text. Output should be a list of numbers in square brackets, with no additional text.",
+        "examples": [
+            {
+                "input": "The intersection of the two sets is [1, 2, 3]. These numbers appear in both sets.",
+                "output": "[1, 2, 3]"
+            },
+            {
+                "input": "After checking both sets carefully, I found that [4, 5, 6] are the common elements between them.",
+                "output": "[4, 5, 6]"
             }
         ]
     }

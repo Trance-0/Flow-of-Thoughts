@@ -50,7 +50,8 @@ def num_errors(thought: Thought, original_thought: Thought) -> int:
     """
     Calculate the number of errors in the intersection.
     """
-    y = set(str_to_list(thought.content))
+    intersection_list = str_to_list(thought.content) if thought.content else []
+    y = set(intersection_list)
     y_truth = set(str_to_list(original_thought.content))
     return len(y.symmetric_difference(y_truth))
 
@@ -58,7 +59,8 @@ def compare_intersection(thought: Thought, truth: str) -> float:
     """
     Calculate the percentage of errors in the intersection.
     """
-    y = set(str_to_list(thought.content))
+    intersection_list = str_to_list(thought.content) if thought.content else []
+    y = set(intersection_list)
     y_truth = set(str_to_list(truth))
     if len(y_truth) == 0:
         return 1.0 if len(y) > 0 else 0.0
@@ -70,13 +72,23 @@ def io(task_input: str, task_truth: str) -> Challenge:
     """
     root = Thought(task_input, [], [], is_executable=True)
     generate = Generate(
-        [root], lm, 1, generate_prompt=Parser.from_json(prompts, "set_intersection_prompt")
+        [root], lm, branching_factor=1, generate_prompt=Parser.from_json(prompts, "set_intersection_prompt")
     )
     res = Evaluate(
-        generate.get_children_thoughts(),
-        lm,
-        evaluate_function=compare_intersection,
-        ground_truth=task_truth,
+        generate.get_children_thoughts(), language_model=lm, evaluate_function=compare_intersection, ground_truth=task_truth
+    )
+    return Challenge(root, max_budget=budget)
+
+def cot(task_input: str, task_truth: str) -> Challenge:
+    """
+    Generates the Challenge to run using the COT method.
+    """
+    root = Thought(task_input, [], [], is_executable=True)
+    generate = Generate(
+        [root], lm, branching_factor=1, generate_prompt=Parser.from_json(prompts, "set_intersection_prompt_cot")
+    )
+    res = Evaluate(
+        generate.get_children_thoughts(), language_model=lm, evaluate_function=compare_intersection, ground_truth=task_truth
     )
     return Challenge(root, max_budget=budget)
 
@@ -86,7 +98,7 @@ def tot(task_input: str, task_truth: str) -> Challenge:
     """
     root = Thought(task_input, [], [], is_executable=True)
     generate = Generate(
-        [root], lm, 5, generate_prompt=Parser.from_json(prompts, "set_intersection_prompt")
+        [root], lm, branching_factor=5, generate_prompt=Parser.from_json(prompts, "set_intersection_prompt")
     )
     scoring_layer = [
         Score([t], lm, scoring_function=num_errors, original_thought=root)
@@ -94,14 +106,101 @@ def tot(task_input: str, task_truth: str) -> Challenge:
     ]
     keep_best = KeepBestN([s.get_children_thoughts()[0] for s in scoring_layer], lm, 1, False)
     improve = Improve(
-        keep_best.get_children_thoughts(),
-        lm,
-        5,
+        parents_thoughts=keep_best.get_children_thoughts(),
+        language_model=lm,
+        branching_factor=5,
         original_thought=root,
         improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
     )
+    extract_thoughts = []
+    for thought in improve.get_children_thoughts():
+        extract_parser = Parser.from_json(prompts, "extract_answer_prompt")
+        extract_parser.cot = thought.content
+        extract_thought = Generate(
+            [thought],
+            lm,
+            branching_factor=1,
+            generate_prompt=extract_parser,
+        )
+        extract_thoughts.append(extract_thought.get_children_thoughts()[0])
+    scoring_layer = [
+        Score([thought], lm, scoring_function=num_errors, original_thought=root)
+        for thought in extract_thoughts
+    ]
+    keep_best = KeepBestN([s.get_children_thoughts()[0] for s in scoring_layer], lm, 1, False)
     res = Evaluate(
-        improve.get_children_thoughts(),
+        keep_best.get_children_thoughts(),
+        lm,
+        evaluate_function=compare_intersection,
+        ground_truth=task_truth,
+    )
+    return Challenge(root, max_budget=budget)
+
+def got(task_input: str, task_truth: str) -> Challenge:
+    """
+    Generates the Challenge to run using the GOT method.
+
+    :param task_input: The input (two sets to find intersection)
+    :type task_input: str 
+    :param task_truth: The truth (intersection result)
+    :type task_truth: str
+    :return: Challenge to run using the GOT method
+    :rtype: Challenge
+    """
+    root = Thought(task_input, [], [], is_executable=True)
+    generate = Generate(
+        [root], lm, 1, generate_prompt=Parser.from_json(prompts, "got_split_prompt")
+    )
+    split_sets = Split(generate.get_children_thoughts(), lm, ["Set 1", "Set 2"])
+    keep_best_subset = []
+    # process each set
+    for split_set in split_sets.get_children_thoughts():
+        process_split_set = Generate(
+            [split_set],
+            lm,
+            1,
+            generate_prompt=Parser.from_json(prompts, "set_intersection_prompt"),
+        )
+        # single layer improvement
+        improve = Improve(
+            process_split_set.get_children_thoughts(),
+            lm,
+            5,
+            improve_prompt=Parser.from_json(prompts, "tot_improve_prompt"),
+            original_thought=split_set,
+        )
+        extract = [
+            Generate(
+                [g],
+                lm,
+                1,
+                generate_prompt=Parser.from_json(prompts, "extract_answer_prompt"),
+            )
+            for g in improve.get_children_thoughts()
+        ]
+        scoring_layer = [
+            Score(
+                t.get_children_thoughts(), lm, scoring_function=num_errors, original_thought=split_set
+            ).get_children_thoughts()[0]
+            for t in extract
+        ]
+        keep_best = KeepBestN(scoring_layer, lm, 1, False)
+        keep_best_subset.append(keep_best.get_children_thoughts()[0])
+    # find intersection with 3 tries
+    aggregate_tries = Aggregate(
+        keep_best_subset,
+        lm,
+        3,
+        aggregate_prompt=Parser.from_json(prompts, "got_merge_prompt"),
+    ).get_children_thoughts()
+    scores = [
+        Score([t], lm, scoring_function=num_errors, original_thought=root).get_children_thoughts()[0]
+        for t in aggregate_tries
+    ]
+    # evaluate the intersection results
+    keep_best_merged = KeepBestN(scores, lm, 1, False)
+    res = Evaluate(
+        keep_best_merged.get_children_thoughts(),
         lm,
         evaluate_function=compare_intersection,
         ground_truth=task_truth,
@@ -153,7 +252,15 @@ def fot(task_input: str, task_truth: str) -> Challenge:
                 improve_prompt=improve_parser,
                 original_thought=task_thought,
             )
-        methods_thoughts.append(ego.get_children_thoughts()[0])
+            extract_parser = Parser.from_json(prompts, "extract_answer_prompt")
+            extract_parser.cot = pitfall.content
+            extract_thought = Generate(
+                ego.get_children_thoughts(),
+                lm,
+                1,
+                generate_prompt=extract_parser,
+            )
+        methods_thoughts.append(extract_thought.get_children_thoughts()[0])
     
     final_scores = [
         Score(
@@ -176,7 +283,7 @@ def fot(task_input: str, task_truth: str) -> Challenge:
 def set_intersection_064():
     global budget
     data_ids = [0]
-    methods = [io, tot, fot]
+    methods = [io, cot, tot, got, fot]
     orig_budget = budget
     data_path = os.path.join(os.path.dirname(__file__), "set_intersection_064.csv")
 
